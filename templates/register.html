@@ -1,0 +1,415 @@
+{% extends "core.html" %}
+{% block title %}LaceBit AI — Register{% endblock %}
+
+{% block extra_style %}
+/* Hide sidebar elements on pre-auth pages */
+.app { display:block; height:auto; overflow:auto; }
+#sidebar, #sidebar-overlay, #pwModal { display:none !important; }
+:root {
+  --glass:rgba(255,255,255,0.6);
+  --glass-border:rgba(255,255,255,0.8);
+}
+[data-theme="dark"] {
+  --glass:rgba(255,255,255,0.04);
+  --glass-border:rgba(255,255,255,0.1);
+}
+
+html, body { height:auto; min-height:100vh; overflow-x:hidden; overflow-y:auto; }
+body { display:flex; align-items:center; justify-content:center; padding:20px; transition:background .3s,color .3s; }
+
+/* BACKGROUND */
+.bg { position:fixed; inset:0; z-index:0; background:var(--paper); overflow:hidden; }
+.bg::before { content:''; position:absolute; width:800px; height:800px; border-radius:50%; background:radial-gradient(circle,rgba(200,240,74,.15) 0%,transparent 70%); top:-300px; right:-200px; animation:drift1 9s ease-in-out infinite alternate; }
+.bg::after  { content:''; position:absolute; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(74,240,200,.12) 0%,transparent 70%); bottom:-200px; left:-150px; animation:drift2 11s ease-in-out infinite alternate; }
+@keyframes drift1 { from{transform:translate(0,0) scale(1);} to{transform:translate(-80px,100px) scale(1.2);} }
+@keyframes drift2 { from{transform:translate(0,0) scale(1);} to{transform:translate(100px,-80px) scale(1.15);} }
+[data-theme="dark"] .bg::before { background:radial-gradient(circle,rgba(168,204,48,.07) 0%,transparent 70%); }
+[data-theme="dark"] .bg::after  { background:radial-gradient(circle,rgba(53,196,160,.05) 0%,transparent 70%); }
+
+.grid-lines { position:fixed; inset:0; z-index:0; background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px); background-size:60px 60px; mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%); }
+[data-theme="dark"] .grid-lines { opacity:.35; }
+
+/* LIQUID GLASS CARD */
+.regs-container {
+  position:relative; z-index:10; width:min(860px,100%);
+  background:rgba(255,255,255,.45); backdrop-filter:blur(40px) saturate(2.2) brightness(1.05); -webkit-backdrop-filter:blur(40px) saturate(2.2) brightness(1.05);
+  border:1px solid rgba(255,255,255,.92); border-radius:32px;
+  box-shadow:0 40px 100px rgba(0,0,0,.10), 0 1px 0 rgba(255,255,255,1) inset, 0 -1px 0 rgba(0,0,0,.04) inset, 0 0 0 0.5px rgba(0,0,0,.06);
+  overflow:hidden; animation:fadeUp .7s cubic-bezier(.22,.68,0,1.2) both;
+  display:grid; grid-template-columns:300px 1fr;
+}
+.regs-container::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.9) 40%,rgba(255,255,255,.9) 60%,transparent 100%); z-index:10; pointer-events:none; }
+.regs-container::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.3) 0%,transparent 50%); pointer-events:none; z-index:0; border-radius:32px; }
+[data-theme="dark"] .regs-container { background:rgba(20,20,26,.7); border-color:rgba(255,255,255,.1); box-shadow:0 40px 100px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.08) inset; }
+[data-theme="dark"] .regs-container::after { background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 50%); }
+
+/* LEFT BRAND PANEL */
+.panel-brand { background:var(--ink); padding:36px 28px; display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden; z-index:1; }
+.panel-brand::after { content:''; position:absolute; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle,rgba(200,240,74,.18) 0%,transparent 70%); bottom:-80px; left:-80px; animation:glow 4s ease-in-out infinite; }
+@keyframes glow { 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
+[data-theme="dark"] .panel-brand { background:#0d0d10; }
+
+.brand { display:flex; align-items:center; gap:12px; margin-bottom:36px; position:relative; z-index:2; }
+.logo-box { width:44px; height:44px; border-radius:12px; background:transparent; border:2px solid rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
+.logo-box img { width:100%; height:100%; object-fit:cover; display:block; }
+.logo-box img.failed { display:none; }
+.logo-box img.failed + svg { display:block; }
+.logo-box svg { display:none; width:26px; height:26px; }
+.brand-name { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; letter-spacing:-.5px; }
+.brand-sub { font-size:10px; color:rgba(255,255,255,.4); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+
+.brand-headline { position:relative; z-index:2; }
+.brand-headline h2 { font-family:'Syne',sans-serif; font-size:clamp(22px,3vw,34px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:14px; }
+.brand-headline h2 em { font-style:normal; color:var(--accent); }
+.brand-headline p { color:rgba(255,255,255,.45); font-size:13px; line-height:1.7; }
+
+.steps { display:flex; flex-direction:column; gap:14px; position:relative; z-index:2; }
+.step { display:flex; align-items:flex-start; gap:12px; }
+.step-num { width:22px; height:22px; border-radius:50%; flex-shrink:0; background:rgba(200,240,74,.15); border:1.5px solid rgba(200,240,74,.3); color:var(--accent); font-size:11px; font-weight:800; font-family:'Syne',sans-serif; display:flex; align-items:center; justify-content:center; }
+.step span { color:rgba(255,255,255,.45); font-size:12px; line-height:1.5; padding-top:2px; }
+.step strong { color:rgba(255,255,255,.75); display:block; font-size:12px; font-weight:600; }
+
+/* RIGHT FORM PANEL */
+.panel-form { padding:clamp(28px,4vw,44px); position:relative; z-index:1; overflow-y:auto; max-height:90vh; }
+[data-theme="dark"] .panel-form { background:#16161c; }
+
+.dm-btn { position:absolute; top:20px; right:20px; width:34px; height:34px; border-radius:8px; border:1.5px solid var(--border); background:none; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.dm-btn:hover { border-color:var(--ink); color:var(--ink); }
+[data-theme="dark"] .dm-btn { border-color:rgba(255,255,255,.08); color:#4a4a52; }
+[data-theme="dark"] .dm-btn:hover { border-color:rgba(255,255,255,.2); color:#8a8a92; }
+
+.form-header { margin-bottom:28px; }
+.form-header h2 { font-family:'Syne',sans-serif; font-size:clamp(20px,3vw,26px); font-weight:700; color:var(--ink); margin-bottom:5px; }
+.form-header p { color:var(--muted); font-size:14px; }
+
+/* Two-column grid */
+.fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+.fields-grid .field.full { grid-column:1/-1; }
+
+.field { margin-bottom:18px; }
+.field label { display:block; font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+/* label row with counter */
+.field-labelrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+.field-labelrow label { margin-bottom:0; }
+.char-count { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.5px; transition:color .2s; font-family:'DM Sans',sans-serif; }
+.char-count.warn { color:#d97706; }
+.char-count.full { color:#dc2626; }
+.field input, .field select { width:100%; padding:13px 16px; border:1.5px solid var(--border); border-radius:12px; background:rgba(255,255,255,.85); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--ink); outline:none; transition:border-color .2s,box-shadow .2s; -webkit-appearance:none; appearance:none; }
+.field input:focus, .field select:focus { border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,15,.08); background:rgba(255,255,255,.98); }
+.field input::placeholder { color:rgba(10,10,15,.35); }
+[data-theme="dark"] .field label { color:#7a7a88; }
+[data-theme="dark"] .field input, [data-theme="dark"] .field select { background:rgba(255,255,255,.08); color:#d0cec8; border-color:rgba(255,255,255,.12); }
+[data-theme="dark"] .field input::placeholder { color:#5a5a6a; }
+[data-theme="dark"] .field input:focus, [data-theme="dark"] .field select:focus { background:rgba(255,255,255,.1); border-color:rgba(168,204,48,.4); box-shadow:0 0 0 3px rgba(168,204,48,.07); }
+[data-theme="dark"] .field select option { background:#1c1c21; color:#c9c7c0; }
+
+/* Select arrow */
+.select-wrap { position:relative; }
+.select-wrap::after { content:''; position:absolute; right:14px; top:50%; transform:translateY(-50%); width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:5px solid var(--muted); pointer-events:none; }
+
+/* Section divider */
+.section-divider { position:relative; text-align:center; margin:6px 0 18px; grid-column:1/-1; }
+.section-divider::before { content:''; position:absolute; top:50%; left:0; right:0; border-top:1px solid rgba(10,10,15,.1); }
+[data-theme="dark"] .section-divider::before { border-color:rgba(255,255,255,.06); }
+.section-divider span { position:relative; background:rgba(255,255,255,.7); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.8); border-radius:20px; padding:3px 14px; font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); box-shadow:0 1px 4px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,.9); }
+[data-theme="dark"] .section-divider span { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.1); color:#3a3a42; }
+
+.error-msg { background:rgba(220,50,50,.08); border:1px solid rgba(220,50,50,.2); border-radius:10px; padding:11px 15px; color:#c0392b; font-size:13px; margin-bottom:18px; display:none; grid-column:1/-1; }
+.error-msg.visible { display:block; }
+
+.btn-register { width:100%; padding:15px; background:var(--ink); color:#fff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; letter-spacing:.5px; border:none; border-radius:12px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px; grid-column:1/-1; }
+.btn-register:hover { background:#1a1a2e; box-shadow:0 8px 30px rgba(10,10,15,.2); transform:translateY(-1px); }
+.btn-register:active { transform:none; }
+[data-theme="dark"] .btn-register { background:#2a2a32; color:#ccc9c0; border:1.5px solid rgba(255,255,255,.1); }
+[data-theme="dark"] .btn-register:hover { background:#323240; box-shadow:0 8px 30px rgba(0,0,0,.4); }
+
+.login-link { text-align:center; font-size:13px; color:var(--muted); margin-top:18px; grid-column:1/-1; }
+.login-link a { color:var(--ink); font-weight:600; text-decoration:none; }
+.login-link a:hover { text-decoration:underline; }
+[data-theme="dark"] .login-link a { color:#a8cc30; }
+
+.waiting-note { background:rgba(200,240,74,.12); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(200,240,74,.35); border-radius:12px; padding:10px 14px; font-size:12px; color:#5a7a10; margin-top:14px; display:flex; align-items:center; gap:8px; grid-column:1/-1; box-shadow:inset 0 1px 0 rgba(255,255,255,.5); }
+[data-theme="dark"] .waiting-note { color:#a8cc30; background:rgba(168,204,48,.08); border-color:rgba(168,204,48,.2); }
+
+/* SUCCESS MODAL */
+.success-overlay { position:fixed; inset:0; z-index:1000; background:rgba(10,10,15,.45); backdrop-filter:blur(22px) saturate(1.6); -webkit-backdrop-filter:blur(22px) saturate(1.6); display:flex; align-items:center; justify-content:center; padding:24px; opacity:0; pointer-events:none; transition:opacity .3s; }
+.success-overlay.open { opacity:1; pointer-events:all; }
+[data-theme="dark"] .success-overlay { background:rgba(0,0,0,.55); }
+
+.success-modal { background:rgba(255,255,255,.72); backdrop-filter:blur(40px) saturate(2); -webkit-backdrop-filter:blur(40px) saturate(2); border:1px solid rgba(255,255,255,.92); border-radius:28px; padding:36px 32px 28px; width:min(380px,100%); text-align:center; position:relative; box-shadow:0 32px 80px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,.04); transform:scale(.92) translateY(20px); transition:transform .35s cubic-bezier(.22,.68,0,1.3); }
+.success-overlay.open .success-modal { transform:scale(1) translateY(0); }
+[data-theme="dark"] .success-modal { background:rgba(24,24,30,.85); border-color:rgba(255,255,255,.1); box-shadow:0 32px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08); }
+
+.success-close { position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:50%; background:rgba(10,10,15,.08); border:1px solid rgba(10,10,15,.1); color:var(--muted); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.success-close:hover { background:rgba(220,50,50,.1); border-color:rgba(220,50,50,.25); color:#dc2626; }
+[data-theme="dark"] .success-close { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.12); color:#5a5a68; }
+[data-theme="dark"] .success-close:hover { background:rgba(220,50,50,.15); color:#f87171; }
+
+.success-icon { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(34,197,94,.1)); border:2px solid rgba(34,197,94,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; box-shadow:0 0 0 8px rgba(34,197,94,.06), inset 0 1px 0 rgba(255,255,255,.5); animation:popIn .5s cubic-bezier(.22,.68,0,1.4) .1s both; }
+@keyframes popIn { from{transform:scale(0);opacity:0;} to{transform:scale(1);opacity:1;} }
+.success-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--ink); margin-bottom:10px; line-height:1.2; }
+[data-theme="dark"] .success-title { color:#c9c7c0; }
+.success-msg { font-size:14px; color:var(--muted); line-height:1.65; margin-bottom:24px; }
+
+.countdown-wrap { display:flex; align-items:center; justify-content:center; margin-bottom:20px; }
+.countdown-ring { position:relative; width:52px; height:52px; }
+.countdown-ring svg { transform:rotate(-90deg); }
+.countdown-ring-bg { fill:none; stroke:rgba(10,10,15,.08); stroke-width:4; }
+[data-theme="dark"] .countdown-ring-bg { stroke:rgba(255,255,255,.08); }
+.countdown-ring-bar { fill:none; stroke:#22c55e; stroke-width:4; stroke-linecap:round; stroke-dasharray:138.2; stroke-dashoffset:0; transition:stroke-dashoffset 1s linear, stroke .3s; }
+.countdown-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:var(--ink); }
+[data-theme="dark"] .countdown-num { color:#c9c7c0; }
+
+.btn-ok { width:100%; padding:14px; background:var(--ink); color:#fff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; border:none; border-radius:14px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 16px rgba(10,10,15,.2), inset 0 1px 0 rgba(255,255,255,.1); }
+.btn-ok:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(10,10,15,.25); }
+.btn-ok:active { transform:none; }
+[data-theme="dark"] .btn-ok { background:#2a2a34; border:1.5px solid rgba(255,255,255,.1); }
+.btn-ok-time { background:rgba(255,255,255,.15); border-radius:6px; padding:1px 8px; font-size:13px; font-weight:700; min-width:32px; text-align:center; }
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  body { padding:16px; align-items:flex-start; }
+  .regs-container { grid-template-columns:1fr; border-radius:20px; }
+  .panel-brand { padding:24px 22px; }
+  .brand-headline h2 { font-size:22px; }
+  .steps { display:none; }
+  .panel-form { max-height:none; padding:24px 20px; }
+  .fields-grid { grid-template-columns:1fr; }
+  .fields-grid .field.full { grid-column:1; }
+}
+@media(max-width:480px){ .fields-grid { grid-template-columns:1fr; } }
+{% endblock %}
+
+{% block body %}
+<div class="bg"></div>
+<div class="grid-lines"></div>
+
+<div class="regs-container">
+  <!-- LEFT: Brand panel -->
+  <div class="panel-brand">
+    <div>
+      <div class="brand">
+        <div class="logo-box">
+          <img src="/static/bot.png" alt="LaceBit AI" id="logoImg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8">
+            <rect x="3" y="8" width="18" height="12" rx="3"/>
+            <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+            <circle cx="9" cy="14" r="1.5" fill="#fff"/>
+            <circle cx="15" cy="14" r="1.5" fill="#fff"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">LaceBit AI</div>
+          <div class="brand-sub">Student Portal</div>
+        </div>
+      </div>
+
+      <div class="brand-headline">
+        <h2>Join the<br><em>Campus AI</em><br>Platform.</h2>
+        <p>Submit your details — an admin will approve your account within 24 hours.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div><strong>Fill your details</strong><span>Registration number, name &amp; branch</span></div></div>
+      <div class="step"><div class="step-num">2</div><div><strong>Admin reviews</strong><span>Your account awaits approval</span></div></div>
+      <div class="step"><div class="step-num">3</div><div><strong>Start learning</strong><span>Access AI chat &amp; campus notices</span></div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Registration form -->
+  <div class="panel-form">
+    <button class="dm-btn" id="dm-btn" onclick="DM.toggle()" title="Toggle dark mode">
+      <svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+
+    <div class="form-header">
+      <h2>Create Account</h2>
+      <p>Fill in your college details to request access</p>
+    </div>
+
+    <form action="/register" method="POST">
+      <div class="fields-grid">
+
+        {% if error %}
+        <div class="error-msg visible">{{ error }}</div>
+        {% endif %}
+
+        <div class="field full">
+          <div class="field-labelrow">
+            <label for="f_username">College Registration Number</label>
+            <span class="char-count" id="cc_username">0/12</span>
+          </div>
+          <input id="f_username" name="username" type="text" placeholder="e.g. L24157007001" autocomplete="off" required pattern="[A-Za-z0-9]+" title="Letters and numbers only, no spaces" maxlength="12" oninput="updateCount('f_username','cc_username',12);this.value=this.value.slice(0,12)">
+        </div>
+
+        <div class="field full">
+          <div class="field-labelrow">
+            <label for="f_name">Full Name</label>
+            <span class="char-count" id="cc_name">0/45</span>
+          </div>
+          <input id="f_name" name="name" type="text" placeholder="As per college records" autocomplete="name" required maxlength="45" oninput="updateCount('f_name','cc_name',45);this.value=this.value.slice(0,45)">
+        </div>
+
+        <div class="field">
+          <label>Join Year</label>
+          <div class="select-wrap">
+            <select name="join_year" id="joinYearSelect" required></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Branch</label>
+          <div class="select-wrap">
+            <select name="branch" required>
+              <option value="" disabled selected>Select branch</option>
+              <option value="computer science &amp; engineering">Computer Science &amp; Engineering</option>
+              <option value="electrical engineering">Electrical Engineering</option>
+              <option value="mechanical engineering">Mechanical Engineering</option>
+              <option value="Textile">Textile</option>
+              <option value="civil engineering">Civil Engineering</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-divider"><span>Set Password</span></div>
+
+        <div class="field">
+          <div class="field-labelrow">
+            <label for="pw1">Password</label>
+            <span class="char-count" id="cc_pw1">0/10</span>
+          </div>
+          <input name="password" type="password" placeholder="6–10 characters" id="pw1" minlength="6" maxlength="10" autocomplete="new-password" required oninput="updateCount('pw1','cc_pw1',10)">
+        </div>
+
+        <div class="field">
+          <div class="field-labelrow">
+            <label for="pw2">Confirm Password</label>
+            <span class="char-count" id="cc_pw2">0/10</span>
+          </div>
+          <input type="password" placeholder="Repeat password" id="pw2" minlength="6" maxlength="10" autocomplete="new-password" required oninput="updateCount('pw2','cc_pw2',10)">
+        </div>
+
+        <button class="btn-register" type="submit" onclick="return validatePw()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Request Access
+        </button>
+
+        <div class="waiting-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Your account will be active after admin approval — usually within 24 hours.
+        </div>
+
+        <div class="login-link">Already have an account? <a href="/login">Sign In</a></div>
+
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-modal">
+    <button class="success-close" id="successClose" title="Cancel">✕</button>
+    <div class="success-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="success-title">Registration Submitted!</div>
+    <div class="success-msg">You have successfully registered.<br>Please wait for <strong>admin approval</strong> before you can sign in.</div>
+    <div class="countdown-wrap">
+      <div class="countdown-ring">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle class="countdown-ring-bg" cx="26" cy="26" r="22"/>
+          <circle class="countdown-ring-bar" id="countRing" cx="26" cy="26" r="22" style="stroke-dasharray:138.2; stroke-dashoffset:0;"/>
+        </svg>
+        <div class="countdown-num" id="countNum">12</div>
+      </div>
+    </div>
+    <button class="btn-ok" id="btnOk" onclick="goLogin()">
+      OK <span class="btn-ok-time" id="btnTime">12</span>
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+/* Populate Join Year select — always includes current real year automatically */
+(function(){
+  const sel = document.getElementById('joinYearSelect');
+  const cur = new Date().getFullYear();
+  for(let y = cur; y >= 2023; y--){
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if(y === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+})();
+
+/* Char counter update */
+function updateCount(inputId, counterId, max){
+  const inp = document.getElementById(inputId);
+  const el  = document.getElementById(counterId);
+  if(!inp || !el) return;
+  const len = inp.value.length;
+  el.textContent = len + '/' + max;
+  el.className = 'char-count' + (len >= max ? ' full' : len >= Math.floor(max * 0.8) ? ' warn' : '');
+}
+
+/* Auto-dismiss error banner when user starts typing */
+(function(){
+  const err = document.querySelector('.error-msg.visible');
+  if(!err) return;
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', () => { err.classList.remove('visible'); }, { once: true });
+    el.addEventListener('change', () => { err.classList.remove('visible'); }, { once: true });
+  });
+})();
+
+/* Image fallback */
+(function(){
+  const img = document.getElementById('logoImg');
+  if(img){ img.onerror=()=>img.classList.add('failed'); if(img.complete&&!img.naturalWidth) img.classList.add('failed'); }
+})();
+
+/* Password match + length validation */
+function validatePw(){
+  const p1=document.getElementById('pw1').value;
+  const p2=document.getElementById('pw2').value;
+  if(p1.length < 6){ alert("Password must be at least 6 characters."); return false; }
+  if(p1.length > 10){ alert("Password must be no more than 10 characters."); return false; }
+  if(p1!==p2){ alert("Passwords don't match — please re-enter."); return false; }
+  return true;
+}
+
+// Clear error/success params from URL bar without refreshing
+if(window.history.replaceState){
+  window.history.replaceState(null, null, window.location.pathname);
+}
+
+/* Success Modal Countdown */
+const TOTAL=12, CIRCUMFERENCE=138.2;
+let countTimer=null, remaining=TOTAL;
+
+function startCountdown(){
+  remaining=TOTAL; updateCountdown(remaining);
+  countTimer=setInterval(()=>{ remaining--; updateCountdown(remaining); if(remaining<=0){ clearInterval(countTimer); goLogin(); } },1000);
+}
+function updateCountdown(n){
+  const ring=document.getElementById('countRing');
+  const num=document.getElementById('countNum');
+  const btnT=document.getElementById('btnTime');
+  if(!ring||!num||!btnT) return;
+  ring.style.strokeDashoffset=CIRCUMFERENCE*(1-n/TOTAL);
+  ring.style.stroke=n<=3?'#ef4444':n<=6?'#f59e0b':'#22c55e';
+  num.textContent=n; btnT.textContent=n;
+}
+function goLogin(){ clearInterval(countTimer); window.location.href='/login'; }
+function cancelRegistration(){ clearInterval(countTimer); document.getElementById('successOverlay').classList.remove('open'); document.querySelector('form').reset(); }
+document.getElementById('successClose').addEventListener('click', cancelRegistration);
+
+{% if success %}
+window.addEventListener('DOMContentLoaded',()=>{ document.getElementById('successOverlay').classList.add('open'); startCountdown(); });
+{% endif %}
+</script>
+{% endblock %}

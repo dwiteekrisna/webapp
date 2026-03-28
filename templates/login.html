@@ -1,0 +1,196 @@
+{% extends "core.html" %}
+
+{% block title %}LaceBit AI — Login{% endblock %}
+
+{# ── Hide sidebar and related elements on pre-auth pages ── #}
+{% block extra_style %}
+/* Hide sidebar elements on pre-auth pages */
+.dm-btn {
+  position:absolute; top:20px; right:20px; z-index:20;
+  width:36px; height:36px; border-radius:9px;
+  border:1.5px solid rgba(10,10,15,.15); background:none;
+  color:var(--muted); cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center;
+}
+.dm-btn:hover { border-color:var(--ink); color:var(--ink); }
+[data-theme="dark"] .dm-btn { border-color:rgba(255,255,255,.12); color:#5a5a64; }
+[data-theme="dark"] .dm-btn:hover { border-color:rgba(255,255,255,.25); color:#c9c7c0; }
+.app { display:block; height:auto; overflow:auto; }
+#sidebar, #sidebar-overlay, #pwModal { display:none !important; }
+
+/* ── DARK MODE overrides for login ── */
+[data-theme="dark"] .bg { background:var(--paper); }
+[data-theme="dark"] .bg::before { background:radial-gradient(circle,rgba(168,204,48,.06) 0%,transparent 70%); }
+[data-theme="dark"] .bg::after  { background:radial-gradient(circle,rgba(53,196,160,.05) 0%,transparent 70%); }
+[data-theme="dark"] .grid-lines { opacity:0.4; }
+[data-theme="dark"] .panel-left { background:#0d0d10; }
+[data-theme="dark"] .panel-left h1 em { color:var(--accent); }
+[data-theme="dark"] .panel-left::before { background:radial-gradient(circle,rgba(168,204,48,.08) 0%,transparent 70%); }
+[data-theme="dark"] .panel-right { background:#16161a; }
+[data-theme="dark"] .form-header h2 { color:#dbd9d2; }
+[data-theme="dark"] .form-header p { color:var(--muted); }
+[data-theme="dark"] .field label { color:#5a5a64; }
+[data-theme="dark"] .field input { background:#1e1e24; color:#ccc9c0; border-color:rgba(255,255,255,0.08); }
+[data-theme="dark"] .field input::placeholder { color:#3a3a42; }
+[data-theme="dark"] .field input:focus { border-color:rgba(168,204,48,0.4); box-shadow:0 0 0 3px rgba(168,204,48,0.06); }
+[data-theme="dark"] .btn-login { background:#2a2a32; color:#ccc9c0; border:1.5px solid rgba(255,255,255,0.1); }
+[data-theme="dark"] .btn-login:hover { background:#323240; box-shadow:0 8px 30px rgba(0,0,0,0.4); }
+[data-theme="dark"] .footer-note { color:#3a3a42; }
+[data-theme="dark"] .wrapper { box-shadow:0 40px 100px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05); }
+[data-theme="dark"] .register-link { border-color:rgba(255,255,255,.06); }
+[data-theme="dark"] .register-link a { color:#a8cc30; }
+
+html, body { height:auto; min-height:100vh; overflow-x:hidden; overflow-y:auto; }
+body { font-family:'DM Sans',sans-serif; background:var(--paper); color:var(--ink); display:flex; align-items:center; justify-content:center; transition:background .3s,color .3s; padding:20px 0; }
+
+.bg { position:fixed; inset:0; z-index:0; background:var(--paper); overflow:hidden; }
+.bg::before { content:''; position:absolute; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(200,240,74,.18) 0%,transparent 70%); top:-200px; right:-100px; animation:drift1 8s ease-in-out infinite alternate; }
+.bg::after { content:''; position:absolute; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(74,240,200,.14) 0%,transparent 70%); bottom:-150px; left:-100px; animation:drift2 10s ease-in-out infinite alternate; }
+@keyframes drift1 { from{transform:translate(0,0) scale(1);} to{transform:translate(-60px,80px) scale(1.15);} }
+@keyframes drift2 { from{transform:translate(0,0) scale(1);} to{transform:translate(80px,-60px) scale(1.2);} }
+
+.grid-lines { position:fixed; inset:0; z-index:0; background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px); background-size:60px 60px; mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%); }
+
+.wrapper { position:relative; z-index:10; display:grid; grid-template-columns:1fr 1fr; width:min(960px,95vw); min-height:min(580px,90vh); border-radius:28px; overflow:hidden; box-shadow:0 40px 100px rgba(0,0,0,.15),0 0 0 1px var(--border); animation:fadeUp .7s cubic-bezier(.22,.68,0,1.2) both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(40px) scale(.97);} to{opacity:1;transform:none;} }
+
+/* LEFT PANEL */
+.panel-left { background:var(--ink); padding:clamp(32px,5vw,56px); display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden; }
+.panel-left::before { content:''; position:absolute; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle,rgba(200,240,74,.2) 0%,transparent 70%); bottom:-80px; left:-80px; animation:glow 4s ease-in-out infinite; }
+@keyframes glow { 0%,100%{transform:scale(1);} 50%{transform:scale(1.1);} }
+
+.brand { display:flex; align-items:center; gap:12px; }
+.logo-box { width:48px; height:48px; border-radius:14px; background:transparent; border:2px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; position:relative; }
+.logo-box img { width:100%; height:100%; object-fit:cover; display:block; }
+.logo-box .logo-fallback { display:none; width:28px; height:28px; }
+.logo-box img.failed { display:none; }
+.logo-box img.failed + .logo-fallback { display:block; }
+.brand-name { font-family:'Syne',sans-serif; font-size:clamp(18px,2vw,22px); font-weight:800; color:#fff; letter-spacing:-.5px; }
+.brand-sub { font-size:10px; color:rgba(255,255,255,.4); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+
+.panel-left-content { position:relative; z-index:2; }
+.panel-left h1 { font-family:'Syne',sans-serif; font-size:clamp(28px,4vw,46px); font-weight:800; color:#fff; line-height:1.05; margin-bottom:16px; }
+.panel-left h1 em { font-style:normal; color:var(--accent); }
+.panel-left p { color:rgba(255,255,255,.5); font-size:14px; line-height:1.7; max-width:280px; }
+
+.features { display:flex; flex-direction:column; gap:12px; position:relative; z-index:2; }
+.feature { display:flex; align-items:center; gap:12px; }
+.feature-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+.feature span { color:rgba(255,255,255,.55); font-size:13px; }
+
+/* RIGHT PANEL */
+.panel-right { background:var(--cream); padding:clamp(32px,5vw,56px); display:flex; flex-direction:column; justify-content:center; position:relative; transition:background .3s; }
+
+.form-header { margin-bottom:36px; }
+.form-header h2 { font-family:'Syne',sans-serif; font-size:clamp(22px,3vw,30px); font-weight:700; color:var(--ink); margin-bottom:6px; }
+.form-header p { color:var(--muted); font-size:14px; }
+
+.field { margin-bottom:20px; }
+.field label { display:block; font-size:12px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.field input { width:100%; padding:14px 18px; border:1.5px solid var(--border); border-radius:12px; background:rgba(255,255,255,.7); font-family:'DM Sans',sans-serif; font-size:15px; color:var(--ink); outline:none; transition:border-color .2s,box-shadow .2s; }
+.field input:focus { border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,15,.08); }
+.field input::placeholder { color:#bbb; }
+
+.error-msg { background:rgba(220,50,50,.08); border:1px solid rgba(220,50,50,.2); border-radius:10px; padding:12px 16px; color:#c0392b; font-size:13px; margin-bottom:20px; display:none; }
+.error-msg.visible { display:block; }
+
+.btn-login { width:100%; padding:15px; background:var(--ink); color:#fff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; letter-spacing:.5px; border:none; border-radius:12px; cursor:pointer; transition:background .2s,transform .15s,box-shadow .2s; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px; }
+.btn-login:hover { background:#1a1a2e; box-shadow:0 8px 30px rgba(10,10,15,.25); transform:translateY(-1px); }
+.btn-login:active { transform:translateY(0); }
+
+.footer-note { text-align:center; font-size:12px; color:var(--muted); margin-top:18px; }
+.register-link { text-align:center; font-size:13px; color:var(--muted); margin-top:20px; padding-top:18px; border-top:1px solid var(--border); }
+.register-link a { color:var(--ink); font-weight:600; text-decoration:none; transition:opacity .2s; }
+.register-link a:hover { opacity:.7; }
+
+/* RESPONSIVE */
+@media(max-width:680px){
+  body { overflow:auto; align-items:flex-start; padding:20px 0; }
+  .wrapper { grid-template-columns:1fr; width:95vw; min-height:unset; border-radius:20px; }
+  .panel-left { padding:28px 24px; min-height:200px; }
+  .panel-left h1 { font-size:26px; }
+  .panel-right { padding:28px 24px; }
+  .features { display:none; }
+}
+@media(min-width:681px) and (max-width:900px){
+  .wrapper { grid-template-columns:45% 55%; }
+  .panel-left h1 { font-size:28px; }
+}
+{% endblock %}
+
+{% block body %}
+<div class="bg"></div>
+<div class="grid-lines"></div>
+
+<div class="wrapper">
+  <div class="panel-left">
+    <div class="brand">
+      <div class="logo-box" id="logoBox">
+        <img src="/static/bot.png" alt="LaceBit AI Logo" id="logoImg">
+        <svg class="logo-fallback" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8">
+          <rect x="3" y="8" width="18" height="12" rx="3"/>
+          <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+          <circle cx="9" cy="14" r="1.5" fill="#fff"/>
+          <circle cx="15" cy="14" r="1.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">LaceBit AI</div>
+        <div class="brand-sub">College Intelligence Platform</div>
+      </div>
+    </div>
+    <div class="panel-left-content">
+      <h1>Think<br><em>Smarter.</em><br>Learn More.</h1>
+      <p>Your AI-powered campus companion — instant answers, smart assistance, always on.</p>
+    </div>
+    <div class="features">
+      <div class="feature"><div class="feature-dot"></div><span>Real-time AI chat with vision</span></div>
+      <div class="feature"><div class="feature-dot"></div><span>Campus notice board updates</span></div>
+      <div class="feature"><div class="feature-dot"></div><span>Secure student authentication</span></div>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <button class="dm-btn" id="dm-toggle" onclick="DM.toggle()" title="Toggle dark mode">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <div class="form-header">
+      <h2>Welcome back</h2>
+      <p>Sign in to your student account</p>
+    </div>
+    {% if error %}
+    <div class="error-msg visible">{{ error }}</div>
+    {% endif %}
+    <form action="/login" method="POST">
+      <div class="field">
+        <label>Registration Number</label>
+        <input name="username" type="text" placeholder="Enter your reg. number" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+      </div>
+      <button class="btn-login" type="submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10,17 15,12 10,7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Sign In
+      </button>
+    </form>
+    <div class="register-link">New student? <a href="/register">Request Access →</a></div>
+    <div class="footer-note">Protected by institutional security · LaceBit AI © 2025</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+(function(){
+  const img=document.getElementById('logoImg');
+  if(img){ img.onerror=function(){ this.classList.add('failed'); }; if(img.complete&&!img.naturalWidth) img.classList.add('failed'); }
+})();
+
+// Clear error/success params from URL bar without refreshing
+if(window.history.replaceState){
+  window.history.replaceState(null, null, window.location.pathname);
+}
+</script>
+{% endblock %}

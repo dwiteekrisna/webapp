@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#111114" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f3ee">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>{% block title %}LaceBit AI{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<!-- Apply saved theme BEFORE paint to avoid flash -->
+<script>(function(){ const m=document.cookie.match(/nexus_theme=(dark|light)/); if(m) document.documentElement.setAttribute('data-theme',m[1]); })();</script>
+
+<style>
+/* ══════════════════════════════════════════════
+   CORE — shared across all pages
+══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+:root {
+  --ink:#0a0a0f; --paper:#f5f3ee; --cream:#ede9e0;
+  --card:#ffffff; --accent:#c8f04a; --accent2:#4af0c8;
+  --muted:#888; --border:rgba(10,10,15,0.12);
+  --sidebar-w:260px;
+}
+
+/* ── DARK MODE ── */
+[data-theme="dark"] {
+  --ink:#c9c7c0; --paper:#111114; --cream:#18181c;
+  --card:#1c1c21; --accent:#a8cc30; --accent2:#35c4a0;
+  --muted:#4a4a52; --border:rgba(255,255,255,0.07);
+}
+[data-theme="dark"] body { background:var(--paper); color:var(--ink); }
+
+html, body { height:100%; font-family:'DM Sans',sans-serif; background:var(--paper); color:var(--ink); overflow:hidden; }
+
+/* ── SIDEBAR (used by home, chat, waiting) ── */
+.sidebar-overlay {
+  position:fixed; inset:0; z-index:490;
+  background:rgba(0,0,0,.5);
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+.sidebar-overlay.open { opacity:1; pointer-events:all; display:block; }
+
+.sidebar {
+  width:var(--sidebar-w); background:var(--ink); flex-shrink:0;
+  display:flex; flex-direction:column;
+  padding:24px 20px 20px;
+  position:relative; transform:none;
+  z-index:100;
+  /* Must be constrained to viewport height so footer stays visible */
+  height:100vh; height:100dvh;
+  overflow:hidden;
+  transition:transform .32s cubic-bezier(.22,.68,0,1.2);
+}
+/* Mobile: slide-in drawer */
+@media(max-width:768px){
+  .sidebar {
+    position:fixed; top:0; left:0; bottom:0;
+    height:100%; height:100dvh;
+    transform:translateX(-100%); z-index:500;
+  }
+  .sidebar.open { transform:translateX(0); }
+}
+.sidebar::after {
+  content:''; position:absolute; width:220px; height:220px; border-radius:50%;
+  background:radial-gradient(circle,rgba(200,240,74,.15) 0%,transparent 70%);
+  bottom:-60px; left:-60px; pointer-events:none;
+}
+[data-theme="dark"] .sidebar { background:#0d0d10; }
+[data-theme="dark"] .sidebar::after { background:radial-gradient(circle,rgba(168,204,48,.06) 0%,transparent 70%); }
+
+.logo {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:40px; text-decoration:none; flex-shrink:0;
+}
+.logo-img {
+  width:40px; height:40px; border-radius:11px;
+  background:#1c1c21;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; flex-shrink:0;
+}
+.logo-img img {
+  width:100%; height:100%; object-fit:cover;
+  mix-blend-mode:screen;
+}
+[data-theme="dark"] .logo-img { background:#1c1c21; }
+[data-theme="dark"] .logo-img img { mix-blend-mode:screen; }
+.logo-text { color:#fff; font-family:'Syne',sans-serif; font-weight:800; font-size:18px; }
+
+.nav { flex:1; display:flex; flex-direction:column; gap:4px; overflow-y:auto; min-height:0; }
+.nav::-webkit-scrollbar { width:0; }
+.nav-item {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 14px; border-radius:12px;
+  color:rgba(255,255,255,.5); font-size:14px; font-weight:500;
+  text-decoration:none; transition:all .2s; cursor:pointer;
+}
+.nav-item svg { flex-shrink:0; }
+.nav-item:hover { background:rgba(255,255,255,.07); color:rgba(255,255,255,.9); }
+.nav-item.active { background:rgba(200,240,74,.15); color:var(--accent); }
+[data-theme="dark"] .nav-item { color:rgba(255,255,255,.4); }
+[data-theme="dark"] .nav-item:hover { background:rgba(255,255,255,.05); color:rgba(255,255,255,.75); }
+[data-theme="dark"] .nav-item.active { background:rgba(168,204,48,.08); color:#a8cc30; }
+
+.sidebar-footer {
+  border-top:1px solid rgba(255,255,255,.08);
+  padding-top:16px; margin-top:auto; flex-shrink:0;
+  padding-bottom:4px;
+}
+.user-info { display:flex; align-items:center; gap:10px; }
+.avatar, .s-avatar {
+  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:14px; color:var(--ink);
+  overflow:hidden;
+}
+.avatar img, .s-avatar img { width:100%; height:100%; object-fit:cover; }
+.user-name, .s-name { color:#fff; font-size:13px; font-weight:500; }
+.user-role, .s-role { color:rgba(255,255,255,.35); font-size:11px; margin-top:1px; }
+.logout-btn {
+  margin-left:auto; display:flex; align-items:center;
+  background:none; border:none; cursor:pointer;
+  color:rgba(255,255,255,.3); padding:6px; border-radius:8px;
+  transition:color .2s; text-decoration:none;
+}
+.logout-btn:hover { color:rgba(255,255,255,.7); }
+
+/* ── HAMBURGER ── */
+.hamburger {
+  display:flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:10px;
+  border:1.5px solid var(--border); background:var(--card);
+  cursor:pointer; color:var(--ink); transition:all .2s;
+  flex-shrink:0; -webkit-tap-highlight-color:transparent;
+}
+.hamburger:hover { background:var(--cream); border-color:rgba(10,10,15,.25); }
+.hamburger:active { transform:scale(.94); }
+[data-theme="dark"] .hamburger { background:#1c1c21; border-color:rgba(255,255,255,.07); color:#7a7a84; }
+[data-theme="dark"] .hamburger:hover { background:#22222a; }
+
+/* ── DARK MODE TOGGLE BUTTON (used in topbar) ── */
+.dm-toggle {
+  display:flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:9px;
+  border:1.5px solid var(--border); background:none;
+  color:var(--muted); cursor:pointer; transition:all .2s; flex-shrink:0;
+}
+.dm-toggle:hover { border-color:var(--ink); color:var(--ink); }
+[data-theme="dark"] .dm-toggle { border-color:rgba(255,255,255,.07); color:#3a3a42; }
+[data-theme="dark"] .dm-toggle:hover { border-color:rgba(255,255,255,.15); color:#7a7a84; }
+
+/* ── MODAL SHARED ── */
+.modal-overlay {
+  position:fixed; inset:0; z-index:600;
+  background:rgba(10,10,15,.55); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .25s; padding:20px;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--paper); border-radius:24px;
+  width:min(520px,100%); padding:clamp(24px,5vw,40px);
+  box-shadow:0 40px 100px rgba(0,0,0,.2);
+  transform:translateY(30px) scale(.97);
+  transition:transform .3s cubic-bezier(.22,.68,0,1.2);
+}
+.modal-overlay.open .modal { transform:translateY(0) scale(1); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+.modal-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
+.modal-close {
+  width:36px; height:36px; border-radius:50%;
+  border:1.5px solid var(--border); background:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--muted); transition:all .2s;
+}
+.modal-close:hover { background:var(--ink); color:#fff; border-color:var(--ink); }
+.modal-field { margin-bottom:18px; }
+.modal-field label {
+  display:block; font-size:11px; font-weight:500;
+  letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:8px;
+}
+.modal-field input,
+.modal-field textarea {
+  width:100%; padding:13px 16px;
+  border:1.5px solid var(--border); border-radius:12px;
+  background:var(--card); font-family:'DM Sans',sans-serif;
+  font-size:15px; color:var(--ink); outline:none;
+  transition:border-color .2s,box-shadow .2s; resize:none;
+}
+.modal-field textarea { min-height:120px; line-height:1.6; }
+.modal-field input:focus, .modal-field textarea:focus {
+  border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,15,.07);
+}
+.btn-submit {
+  width:100%; padding:14px; background:var(--ink); color:#fff;
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+  border:none; border-radius:12px; cursor:pointer;
+  transition:background .2s,transform .15s; margin-top:4px;
+}
+.btn-submit:hover { background:#1a1a2e; transform:translateY(-1px); }
+[data-theme="dark"] .modal-overlay { background:rgba(0,0,0,.7); }
+[data-theme="dark"] .modal { background:#181820; border:1px solid rgba(255,255,255,.06); }
+[data-theme="dark"] .modal-title { color:#c9c7c0; }
+[data-theme="dark"] .modal-close { color:#4a4a52; }
+[data-theme="dark"] .modal-close:hover { color:#8a8a92; }
+[data-theme="dark"] .modal-field label { color:#4a4a52; }
+[data-theme="dark"] .modal-field input,
+[data-theme="dark"] .modal-field textarea { background:#1e1e26; color:#c9c7c0; border-color:rgba(255,255,255,.07); }
+[data-theme="dark"] .btn-submit { background:#2a2a34; color:#9a9aa4; }
+[data-theme="dark"] .btn-submit:hover { background:#323240; }
+
+/* ── PASSWORD CHANGE MODAL (shared: home + waiting) ── */
+.pw-modal-overlay {
+  position:fixed; inset:0; z-index:900;
+  background:rgba(10,10,15,.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px; opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.pw-modal-overlay.open { opacity:1; pointer-events:all; }
+.pw-modal {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:20px; padding:28px 26px; width:min(380px,100%);
+  box-shadow:0 24px 60px rgba(0,0,0,.18);
+  transform:translateY(16px) scale(.97); transition:transform .28s cubic-bezier(.22,.68,0,1.2);
+}
+.pw-modal-overlay.open .pw-modal { transform:none; }
+.pw-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+.pw-modal-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; }
+.pw-modal-close {
+  width:32px; height:32px; border-radius:8px;
+  border:1.5px solid var(--border); background:none; cursor:pointer;
+  color:var(--muted); font-size:16px;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.pw-modal-close:hover { border-color:var(--ink); color:var(--ink); }
+.pw-mfield { margin-bottom:16px; }
+.pw-mfield label {
+  display:block; font-size:11px; font-weight:600;
+  letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:7px;
+}
+.pw-mfield-wrap { position:relative; }
+.pw-mfield input {
+  width:100%; padding:12px 42px 12px 14px;
+  border:1.5px solid var(--border); border-radius:11px;
+  background:var(--cream); font-family:'DM Sans',sans-serif;
+  font-size:14px; color:var(--ink); outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.pw-mfield input:focus { border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,15,.07); }
+.pw-mfield input::placeholder { color:#bbb; }
+.pw-eye {
+  position:absolute; right:11px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:var(--muted);
+  padding:4px; display:flex; align-items:center; justify-content:center; opacity:.45;
+}
+.pw-status { display:none; padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:15px; }
+.pw-status.show { display:block; }
+.pw-status.success { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.25); color:#16a34a; }
+.pw-status.error { background:rgba(220,50,50,.08); border:1px solid rgba(220,50,50,.2); color:#c0392b; }
+.pw-submit {
+  width:100%; padding:13px; background:var(--ink); color:#fff;
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+  border:none; border-radius:11px; cursor:pointer; transition:all .2s; margin-top:4px;
+}
+.pw-submit:hover { background:#1a1a2e; box-shadow:0 6px 20px rgba(10,10,15,.2); }
+.pw-submit:disabled { opacity:.5; cursor:not-allowed; }
+[data-theme="dark"] .pw-modal { background:#1c1c22; border-color:rgba(255,255,255,.08); }
+[data-theme="dark"] .pw-modal-title { color:#c9c7c0; }
+[data-theme="dark"] .pw-mfield label { color:#5a5a68; }
+[data-theme="dark"] .pw-mfield input { background:#242430; border-color:rgba(255,255,255,.1); color:#c9c7c0; }
+[data-theme="dark"] .pw-mfield input::placeholder { color:#3a3a46; }
+[data-theme="dark"] .pw-mfield input:focus { border-color:rgba(168,204,48,.4); box-shadow:0 0 0 3px rgba(168,204,48,.06); }
+[data-theme="dark"] .pw-modal-close { border-color:rgba(255,255,255,.1); color:#4a4a56; }
+[data-theme="dark"] .pw-submit { background:#242430; color:#c9c7c0; border:1.5px solid rgba(255,255,255,.1); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+@keyframes popIn { from{opacity:0;transform:scale(.95) translateY(-4px);} to{opacity:1;transform:none;} }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+/* ── APP SHELL ── */
+.app {
+  display:flex; flex-direction:row;
+  width:100%; height:100vh; height:100dvh;
+  overflow:hidden;
+}
+
+{% block extra_style %}{% endblock %}
+</style>
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="app">
+
+  <!-- ══ SHARED SIDEBAR (single source of truth for all pages) ══ -->
+  <aside class="sidebar" id="sidebar">
+    <a href="/home" class="logo">
+      <div class="logo-img">
+        <img src="/static/bot.png" alt="Logo" onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'#fff\' stroke-width=\'2\' width=\'24\' height=\'24\'><rect x=\'3\' y=\'8\' width=\'18\' height=\'12\' rx=\'3\'/><path d=\'M9 8V6a3 3 0 0 1 6 0v2\'/><circle cx=\'9\' cy=\'14\' r=\'1.5\'/><circle cx=\'15\' cy=\'14\' r=\'1.5\'/></svg>'">
+      </div>
+      <span class="logo-text">LaceBit AI</span>
+    </a>
+    <nav class="nav">
+      <a href="/home" class="nav-item {% block nav_home %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Notice Board
+      </a>
+      <a href="/chat" class="nav-item {% block nav_chat %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        AI Chat
+      </a>
+      {% if user and user.is_admin %}
+      <a href="/waiting" class="nav-item {% block nav_waiting %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Waiting List
+      </a>
+      <a href="/attendance/create-subject" class="nav-item {% block nav_create_subject %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        Create Subject
+      </a>
+      <a href="/attendance/mark" class="nav-item {% block nav_mark_att %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Mark Attendance
+      </a>
+      {% endif %}
+      <a href="/attendance" class="nav-item {% block nav_attendance %}{% endblock %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        My Attendance
+      </a>
+      {% if user and user.is_admin %}
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="avatar">{{ user.display_name[0]|upper if user else 'U' }}</div>
+        <div>
+          <div class="user-name">{{ user.display_name if user else 'Student' }}</div>
+          <div class="user-role">{{ 'Admin' if user and user.is_admin else 'Student' }}</div>
+        </div>
+        <button onclick="openPwModal('pwModal')" class="logout-btn" title="Change Password">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <a href="/logout" class="logout-btn" title="Logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ PAGE CONTENT ══ -->
+  {% block body %}{% endblock %}
+
+</div>{# /.app #}
+
+<div class="pw-modal-overlay" id="pwModal" onclick="if(event.target===this)closePwModal('pwModal')">
+  <div class="pw-modal">
+    <div class="pw-modal-header">
+      <span class="pw-modal-title">Change Password</span>
+      <button class="pw-modal-close" onclick="closePwModal('pwModal')">✕</button>
+    </div>
+    <div class="pw-status" id="pwStatus"></div>
+    <div class="pw-mfield">
+      <label>Current Password</label>
+      <div class="pw-mfield-wrap">
+        <input type="password" id="oldPW" placeholder="Your current password">
+        <button class="pw-eye" onclick="toggleEye('oldPW',this)" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+    </div>
+    <div class="pw-mfield">
+      <label>New Password</label>
+      <div class="pw-mfield-wrap">
+        <input type="password" id="newPW" placeholder="Min. 6 characters">
+        <button class="pw-eye" onclick="toggleEye('newPW',this)" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+    </div>
+    <div class="pw-mfield">
+      <label>Confirm New Password</label>
+      <div class="pw-mfield-wrap">
+        <input type="password" id="cfPW" placeholder="Repeat new password">
+        <button class="pw-eye" onclick="toggleEye('cfPW',this)" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+    </div>
+    <button class="pw-submit" id="pwSubmit" onclick="updatePW('pwModal')">Update Password</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CORE JS — shared Dark Mode + Service Worker
+     Included in every page
+══════════════════════════════════════════════ -->
+<script>
+/* ── SVG icons for dark mode toggle ── */
+const MOON_SVG = `<svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const SUN_SVG  = `<svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+/* ── Dark Mode object — cookie-persisted, shared across all pages ── */
+const DM = {
+  get(){ const m=document.cookie.match(/nexus_theme=(dark|light)/); return m?m[1]:'light'; },
+  set(v){ document.cookie=`nexus_theme=${v};path=/;max-age=31536000;SameSite=Lax`; },
+  apply(v){
+    document.documentElement.setAttribute('data-theme',v);
+    const icon = document.getElementById('dm-icon');
+    if(icon) icon.outerHTML = v==='dark' ? SUN_SVG : MOON_SVG;
+    /* chat.html uses a button ref instead — handled in chat-specific code */
+    const btn = document.getElementById('dm-toggle');
+    if(btn && btn.id !== 'dm-icon') { btn.title = v==='dark' ? 'Light mode' : 'Dark mode'; }
+  },
+  toggle(){ const n=DM.get()==='dark'?'light':'dark'; DM.set(n); DM.apply(n); }
+};
+DM.apply(DM.get());
+
+/* ── Sidebar helpers (used by home, chat, waiting) ── */
+function openSidebar(){
+  document.getElementById('sidebar')?.classList.add('open');
+  document.getElementById('sidebar-overlay')?.classList.add('open');
+  document.getElementById('sideOverlay')?.classList.add('open');  /* chat.html variant */
+}
+function closeSidebar(){
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('open');
+  document.getElementById('sideOverlay')?.classList.remove('open');
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeSidebar(); });
+
+/* ── Password change modal helpers ── */
+function openPwModal(modalId){
+  const id = modalId || 'pwModal';
+  document.getElementById(id)?.classList.add('open');
+}
+function closePwModal(modalId){
+  const id = modalId || 'pwModal';
+  document.getElementById(id)?.classList.remove('open');
+  const st = document.getElementById('pwStatus');
+  if(st){ st.className='pw-status'; }
+  ['oldPW','newPW','cfPW'].forEach(fid=>{ const el=document.getElementById(fid); if(el) el.value=''; });
+}
+const EYE_ON  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+function toggleEye(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(!inp) return;
+  const showing = inp.type === 'password';
+  inp.type = showing ? 'text' : 'password';
+  btn.innerHTML = showing ? EYE_OFF : EYE_ON;
+  btn.style.opacity = showing ? '1' : '0.45';
+}
+async function updatePW(modalId){
+  const old = document.getElementById('oldPW')?.value.trim();
+  const nw  = document.getElementById('newPW')?.value.trim();
+  const cf  = document.getElementById('cfPW')?.value.trim();
+  const st  = document.getElementById('pwStatus');
+  const btn = document.getElementById('pwSubmit');
+  const show = (msg, type) => { if(st){ st.textContent=msg; st.className='pw-status show '+type; } };
+  if(!old||!nw||!cf){ show('Please fill in all fields.','error'); return; }
+  if(nw.length<6){ show('New password must be at least 6 characters.','error'); return; }
+  if(nw!==cf){ show("New passwords don't match.","error"); return; }
+  if(btn){ btn.textContent='Updating…'; btn.disabled=true; }
+  try{
+    const fd=new FormData(); fd.append('current_password',old); fd.append('new_password',nw);
+    const res=await fetch('/change-password',{method:'POST',body:fd});
+    const data=await res.json();
+    if(data.status==='success'){ show('Password updated! ✓','success'); setTimeout(()=>closePwModal(modalId),1800); }
+    else{ show(data.msg||'Something went wrong.','error'); }
+  }catch(e){ show('Connection error. Try again.','error'); }
+  if(btn){ btn.textContent='Update Password'; btn.disabled=false; }
+}
+
+/* ── Service Worker ── */
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+</script>
+
+{% block extra_script %}{% endblock %}
+</body>
+</html>

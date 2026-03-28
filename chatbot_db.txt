@@ -1,0 +1,40 @@
+CREATE DATABASE college_db;
+USE college_db;
+
+CREATE TABLE faculty (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(100),
+    name VARCHAR(100) NOT NULL,
+    designation VARCHAR(100),
+    phone VARCHAR(20),
+    date_of_joining DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE non_teaching_staff (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(100),
+    name VARCHAR(100) NOT NULL,
+    designation VARCHAR(100),
+    phone VARCHAR(20),
+    date_of_joining DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE principal (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    date_of_joining DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE bot_info (
+    id TINYINT PRIMARY KEY CHECK (id = 1),
+    developer VARCHAR(100),
+    bot_name VARCHAR(100),
+    habits TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+maria db database 

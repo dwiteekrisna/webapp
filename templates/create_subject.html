@@ -1,0 +1,1152 @@
+{% extends "core.html" %}
+{% block title %}LaceBit AI — Create Subject{% endblock %}
+
+{% block extra_style %}
+html, body { height:100%; }
+.app { display:flex; height:100vh; height:100dvh; overflow:hidden; }
+.sidebar { width:var(--sidebar-w); flex-shrink:0; position:relative; transform:none; z-index:100; transition:none; overflow:visible !important; }
+@media(max-width:768px){
+  .app { position:relative; }
+  .sidebar { position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w); transform:translateX(-100%); transition:transform .3s cubic-bezier(.22,.68,0,1.2); z-index:500; overflow:hidden !important; }
+  .sidebar.open { transform:translateX(0); }
+  .sidebar-overlay { display:block; }
+  .hamburger { display:flex; }
+}
+@media(min-width:769px){ .hamburger { display:none; } }
+
+.main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; -webkit-overflow-scrolling:touch; }
+
+/* TOPBAR */
+.topbar {
+  background:rgba(245,243,238,.88); border-bottom:1px solid rgba(0,0,0,.07);
+  padding:14px clamp(16px,4vw,36px); display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+}
+[data-theme="dark"] .topbar { background:rgba(17,17,20,.9); border-color:rgba(255,255,255,.06); }
+.topbar-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+
+.content { padding:clamp(16px,3vw,32px); padding-bottom:clamp(48px,8vw,64px); flex:1; }
+.page-header { margin-bottom:24px; }
+.page-header h1 { font-family:'Syne',sans-serif; font-size:clamp(20px,3vw,28px); font-weight:800; margin-bottom:4px; }
+.page-header p { color:var(--muted); font-size:13px; }
+[data-theme="dark"] .page-header h1 { color:#c9c7c0; }
+
+/* TWO-COLUMN GRID */
+.page-grid {
+  display:grid;
+  grid-template-columns:340px 1fr;
+  gap:20px;
+  align-items:start;
+}
+@media(max-width:1100px){ .page-grid { grid-template-columns:1fr; } }
+
+/* ── FORM CARD ── */
+.form-card {
+  background:var(--card); border:1px solid var(--border); border-radius:18px;
+  padding:22px; box-shadow:0 2px 12px rgba(0,0,0,.05);
+}
+@media(min-width:1101px){ .form-card { position:sticky; top:20px; } }
+[data-theme="dark"] .form-card { background:#181820; border-color:rgba(255,255,255,.07); }
+
+.section-label {
+  font-size:10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:8px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+[data-theme="dark"] .section-label { color:#3a3a48; }
+[data-theme="dark"] .section-label::after { background:rgba(255,255,255,.06); }
+
+.step-badge {
+  width:20px; height:20px; border-radius:50%; background:var(--ink); color:#fff;
+  font-family:'Syne',sans-serif; font-size:10px; font-weight:800;
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+[data-theme="dark"] .step-badge { background:var(--accent); color:#0a0a0f; }
+
+.field { margin-bottom:14px; }
+.field label { display:block; font-size:11px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.field input, .field select {
+  width:100%; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px;
+  background:var(--cream); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--ink);
+  outline:none; transition:border-color .2s, box-shadow .2s; -webkit-appearance:none; appearance:none; box-sizing:border-box;
+}
+.field select {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' fill='none'%3E%3Cpath d='M1 1l4.5 5L10 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
+}
+.field input:focus, .field select:focus { border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,15,.07); }
+.field input::placeholder { color:#c4c0b8; }
+.field input:disabled, .field select:disabled { opacity:.4; cursor:not-allowed; }
+[data-theme="dark"] .field label { color:#4a4a56; }
+[data-theme="dark"] .field input, [data-theme="dark"] .field select {
+  background:#1e1e26 !important; border-color:rgba(255,255,255,.09); color:#c9c7c0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' fill='none'%3E%3Cpath d='M1 1l4.5 5L10 1' stroke='%234a4a56' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position:right 12px center; padding-right:34px;
+}
+[data-theme="dark"] .field input::placeholder { color:#3a3a44; }
+[data-theme="dark"] .field input:focus, [data-theme="dark"] .field select:focus { border-color:rgba(200,240,74,.4); box-shadow:0 0 0 3px rgba(200,240,74,.07); }
+.field input, .field select { color-scheme:light; }
+[data-theme="dark"] .field input, [data-theme="dark"] .field select { color-scheme:dark; }
+.time-slot-wrap input[type="time"] { color-scheme:light; }
+[data-theme="dark"] .time-slot-wrap input[type="time"] { color-scheme:dark; }
+
+.sem-row { display:flex; gap:8px; }
+.sem-row select { flex:1; min-width:0; }
+.btn-custom {
+  display:flex; align-items:center; gap:5px; padding:0 12px;
+  border:1.5px solid var(--border); border-radius:10px; background:none;
+  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  color:var(--muted); cursor:pointer; white-space:nowrap; transition:all .2s; flex-shrink:0; height:42px;
+}
+.btn-custom:hover { border-color:var(--ink); color:var(--ink); }
+.btn-custom.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+[data-theme="dark"] .btn-custom { border-color:rgba(255,255,255,.1); color:#3a3a48; }
+[data-theme="dark"] .btn-custom.on { background:var(--accent); color:#0a0a0f; border-color:var(--accent); }
+.custom-input-wrap { margin-top:8px; display:none; }
+.custom-input-wrap.show { display:block; }
+
+.scan-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+
+.btn-scan-batch {
+  width:100%; display:flex; align-items:center; justify-content:center; gap:7px;
+  padding:11px 16px; background:var(--cream); color:var(--ink);
+  border:1.5px solid var(--border); border-radius:10px;
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  cursor:pointer; transition:all .2s;
+}
+.btn-scan-batch:hover { border-color:var(--ink); background:var(--card); }
+.btn-scan-batch:disabled { opacity:.5; cursor:not-allowed; }
+[data-theme="dark"] .btn-scan-batch { background:rgba(200,240,74,.08); color:var(--accent); border-color:rgba(200,240,74,.2); }
+[data-theme="dark"] .btn-scan-batch:hover { background:rgba(200,240,74,.15); border-color:rgba(200,240,74,.35); }
+
+.form-divider { height:1px; background:var(--border); margin:18px 0; }
+[data-theme="dark"] .form-divider { background:rgba(255,255,255,.06); }
+
+/* STUDENT LIST */
+.student-panel { display:none; }
+.student-panel.show { display:block; animation:fadeUp .3s ease both; }
+
+.sel-all-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; background:var(--cream); border:1px solid var(--border);
+  border-radius:10px; margin-bottom:7px;
+}
+[data-theme="dark"] .sel-all-bar { background:#1a1a22; border-color:rgba(255,255,255,.07); }
+.chk-label { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; font-weight:500; color:var(--ink); }
+.chk-label input[type="checkbox"] { width:14px; height:14px; accent-color:var(--ink); cursor:pointer; }
+[data-theme="dark"] .chk-label { color:#c9c7c0; }
+[data-theme="dark"] .chk-label input { accent-color:var(--accent); }
+.sel-count { font-size:11px; color:var(--muted); }
+
+.student-scroll { max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding-right:2px; }
+.student-scroll::-webkit-scrollbar { width:4px; }
+.student-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+.stu-row {
+  display:flex; align-items:center; gap:10px;
+  background:var(--card); border:1.5px solid var(--border); border-radius:10px;
+  padding:8px 11px; cursor:pointer; transition:border-color .15s, background .12s;
+  user-select:none;
+}
+.stu-row:hover { border-color:rgba(10,10,15,.2); }
+.stu-row.unchecked { background:rgba(239,68,68,.03); border-color:rgba(239,68,68,.18); }
+[data-theme="dark"] .stu-row { background:#181820; border-color:rgba(255,255,255,.07); }
+[data-theme="dark"] .stu-row.unchecked { background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.16); }
+.stu-row input[type="checkbox"] { width:14px; height:14px; accent-color:#22c55e; cursor:pointer; flex-shrink:0; }
+[data-theme="dark"] .stu-row input { accent-color:var(--accent); }
+.stu-avt {
+  width:26px; height:26px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:11px; color:var(--ink);
+}
+.stu-name { font-size:13px; font-weight:500; color:var(--ink); }
+.stu-reg  { font-size:11px; color:var(--muted); font-family:monospace; }
+[data-theme="dark"] .stu-name { color:#c9c7c0; }
+[data-theme="dark"] .stu-reg  { color:#3a3a48; }
+.empty-scan { text-align:center; padding:20px; color:var(--muted); font-size:13px; }
+.empty-scan svg { display:block; margin:0 auto 8px; opacity:.25; }
+
+.btn-execute-creation {
+  width:100%; padding:12px; background:var(--ink); color:#fff; border:none;
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700; border-radius:10px;
+  cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center;
+  gap:8px; margin-top:4px;
+}
+.btn-execute-creation:hover { background:#1a1a2e; transform:translateY(-1px); box-shadow:0 6px 20px rgba(10,10,15,.2); }
+.btn-execute-creation:disabled { opacity:.5; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+[data-theme="dark"] .btn-execute-creation { background:var(--accent); color:#0a0a0f; }
+[data-theme="dark"] .btn-execute-creation:hover { background:#d4f566; }
+
+/* ══ ALL SUBJECTS — RIGHT PANEL ══ */
+.list-panel {
+  display:flex; flex-direction:column; gap:0;
+  background:var(--card); border:1px solid var(--border); border-radius:18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.05); overflow:hidden;
+}
+[data-theme="dark"] .list-panel { background:#181820; border-color:rgba(255,255,255,.07); }
+
+.list-header {
+  padding:16px 20px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; gap:10px;
+}
+
+/* TAB SWITCHER */
+.tab-switcher {
+  display:flex; align-items:center; gap:4px;
+  background:var(--cream); border:1px solid var(--border);
+  border-radius:10px; padding:3px;
+}
+[data-theme="dark"] .tab-switcher { background:#1c1c24; border-color:rgba(255,255,255,.08); }
+.tab-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:7px; border:none; background:none;
+  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  color:var(--muted); cursor:pointer; transition:all .18s; white-space:nowrap;
+}
+.tab-btn.active {
+  background:var(--card); color:var(--ink);
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+}
+.tab-btn.active.archived-tab { color:#d97706; }
+[data-theme="dark"] .tab-btn { color:#4a4a56; }
+[data-theme="dark"] .tab-btn.active { background:#252530; color:#c9c7c0; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+[data-theme="dark"] .tab-btn.active.archived-tab { color:#fbbf24; }
+.tab-count {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:18px; height:18px; padding:0 5px;
+  border-radius:100px; font-size:10px; font-weight:700;
+  background:rgba(10,10,15,.08); color:var(--muted);
+}
+.tab-btn.active .tab-count { background:rgba(10,10,15,.1); color:var(--ink); }
+.tab-btn.active.archived-tab .tab-count { background:rgba(217,119,6,.12); color:#d97706; }
+[data-theme="dark"] .tab-btn.active .tab-count { background:rgba(255,255,255,.08); color:#c9c7c0; }
+[data-theme="dark"] .tab-btn.active.archived-tab .tab-count { background:rgba(217,119,6,.1); color:#fbbf24; }
+
+/* GRID PANES */
+/* Pane visibility — must come AFTER .subjects-grid to win specificity */
+.subjects-pane { display:none !important; }
+.subjects-pane.visible { display:grid !important; }
+[data-theme="dark"] .list-header { border-color:rgba(255,255,255,.06); }
+.list-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+[data-theme="dark"] .list-title { color:#c9c7c0; }
+.count-badge {
+  font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px;
+  background:rgba(200,240,74,.18); color:#5a7a10; border:1px solid rgba(200,240,74,.3);
+}
+[data-theme="dark"] .count-badge { background:rgba(168,204,48,.1); color:#a8cc30; border-color:rgba(168,204,48,.22); }
+
+/* SUBJECT CARDS GRID — layout only, visibility handled by subjects-pane */
+.subjects-grid {
+  padding:16px;
+  padding-bottom:20px;
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:12px;
+}
+
+.subj-card {
+  background:var(--paper); border:1.5px solid var(--border); border-radius:14px;
+  padding:16px; display:flex; flex-direction:column; gap:12px;
+  transition:border-color .2s, box-shadow .2s; position:relative;
+  animation:fadeUp .3s ease both;
+}
+.subj-card:hover { border-color:rgba(10,10,15,.2); box-shadow:0 4px 16px rgba(0,0,0,.08); }
+[data-theme="dark"] .subj-card { background:#1c1c24; border-color:rgba(255,255,255,.07); }
+[data-theme="dark"] .subj-card:hover { border-color:rgba(255,255,255,.14); box-shadow:0 4px 16px rgba(0,0,0,.3); }
+
+.subj-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+
+.subj-icon {
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  background:linear-gradient(135deg, rgba(200,240,74,.3), rgba(168,204,48,.2));
+  border:1px solid rgba(200,240,74,.3);
+  display:flex; align-items:center; justify-content:center;
+}
+[data-theme="dark"] .subj-icon { background:rgba(200,240,74,.08); border-color:rgba(200,240,74,.15); }
+
+.subj-name {
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+  color:var(--ink); line-height:1.3; flex:1; min-width:0;
+  word-break:break-word;
+}
+[data-theme="dark"] .subj-name { color:#c9c7c0; }
+
+/* DELETE BUTTON */
+.btn-delete-sub {
+  background:none; border:1px solid transparent; color:var(--muted);
+  width:28px; height:28px; border-radius:7px; cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.btn-delete-sub:hover { background:rgba(220,38,38,.08); color:#dc2626; border-color:rgba(220,38,38,.2); }
+[data-theme="dark"] .btn-delete-sub { color:#3a3a48; }
+[data-theme="dark"] .btn-delete-sub:hover { background:rgba(220,38,38,.12); color:#f87171; border-color:rgba(220,38,38,.25); }
+
+/* ARCHIVE BUTTON */
+.btn-archive-sub {
+  background:none; border:1px solid transparent; color:var(--muted);
+  width:28px; height:28px; border-radius:7px; cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.btn-archive-sub:hover { background:rgba(217,119,6,.08); color:#d97706; border-color:rgba(217,119,6,.25); }
+[data-theme="dark"] .btn-archive-sub { color:#3a3a48; }
+[data-theme="dark"] .btn-archive-sub:hover { background:rgba(217,119,6,.1); color:#fbbf24; border-color:rgba(217,119,6,.3); }
+
+/* ACTIVATE BUTTON */
+.btn-activate-sub {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px; border-radius:7px; cursor:pointer; transition:all .2s;
+  background:rgba(34,197,94,.08); color:#16a34a; border:1px solid rgba(34,197,94,.25);
+  font-family:'DM Sans',sans-serif; font-size:11px; font-weight:600; white-space:nowrap;
+}
+.btn-activate-sub:hover { background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.4); }
+[data-theme="dark"] .btn-activate-sub { background:rgba(34,197,94,.07); color:#22c55e; border-color:rgba(34,197,94,.2); }
+[data-theme="dark"] .btn-activate-sub:hover { background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.35); }
+
+/* ARCHIVED CARD STATE */
+.subj-card.archived {
+  opacity:.65; 
+  background:var(--cream) !important;
+  border-style:dashed !important;
+}
+[data-theme="dark"] .subj-card.archived { background:#161618 !important; border-color:rgba(255,255,255,.08) !important; }
+.subj-card.archived:hover { box-shadow:none !important; border-color:var(--border) !important; }
+
+/* ARCHIVED BADGE */
+.badge-archived {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700;
+  background:rgba(107,114,128,.12); color:#6b7280; border:1px solid rgba(107,114,128,.2);
+  font-family:'DM Sans',sans-serif; letter-spacing:.4px; text-transform:uppercase;
+  white-space:nowrap; flex-shrink:0;
+}
+[data-theme="dark"] .badge-archived { background:rgba(107,114,128,.1); color:#4b5563; border-color:rgba(107,114,128,.2); }
+
+/* CARD META ROW */
+.subj-meta {
+  display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+}
+
+/* CHIPS */
+.chip {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:100px; font-size:11px; font-weight:600;
+  white-space:nowrap; font-family:'DM Sans',sans-serif;
+}
+.chip-branch {
+  background:var(--cream); color:var(--muted); border:1px solid var(--border);
+  max-width:160px; overflow:hidden; text-overflow:ellipsis;
+}
+[data-theme="dark"] .chip-branch { background:#1e1e26; color:#5a5a66; border-color:rgba(255,255,255,.08); }
+.chip-sem { background:rgba(200,240,74,.18); color:#5a7a10; border:1px solid rgba(200,240,74,.3); font-weight:700; }
+[data-theme="dark"] .chip-sem { background:rgba(168,204,48,.1); color:#a8cc30; border-color:rgba(168,204,48,.2); }
+.chip-year { background:rgba(99,102,241,.08); color:#6366f1; border:1px solid rgba(99,102,241,.18); }
+[data-theme="dark"] .chip-year { background:rgba(129,140,248,.07); color:#818cf8; border-color:rgba(129,140,248,.15); }
+.chip-stu { background:rgba(74,130,255,.08); color:#4466bb; border:1px solid rgba(74,130,255,.18); }
+[data-theme="dark"] .chip-stu { background:rgba(100,140,255,.07); color:#8899dd; border-color:rgba(100,140,255,.15); }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align:center; padding:40px 20px; color:var(--muted);
+}
+.empty-state svg { display:block; margin:0 auto 12px; opacity:.2; }
+.empty-state p { font-size:13px; margin:0; }
+
+/* SUBJECT RANKING MODAL */
+.rank-modal-overlay {
+  position:fixed; inset:0; z-index:600;
+  background:rgba(10,10,15,.55); backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px; opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.rank-modal-overlay.open { opacity:1; pointer-events:all; }
+.rank-modal {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:20px; width:100%; max-width:560px; max-height:80vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 24px 64px rgba(0,0,0,.2);
+  transform:translateY(12px); transition:transform .25s cubic-bezier(.22,.68,0,1.2);
+}
+.rank-modal-overlay.open .rank-modal { transform:translateY(0); }
+[data-theme="dark"] .rank-modal { background:#1c1c24; border-color:rgba(255,255,255,.08); }
+.rank-modal-head {
+  padding:18px 20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+[data-theme="dark"] .rank-modal-head { border-color:rgba(255,255,255,.07); }
+.rank-modal-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+[data-theme="dark"] .rank-modal-title { color:#c9c7c0; }
+.rank-modal-close {
+  width:30px; height:30px; border-radius:8px; border:1px solid var(--border);
+  background:none; cursor:pointer; color:var(--muted); font-size:16px;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.rank-modal-close:hover { border-color:var(--ink); color:var(--ink); }
+.rank-modal-body { overflow-y:auto; flex:1; }
+.rank-modal-body::-webkit-scrollbar { width:4px; }
+.rank-modal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+.rank-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+.rank-tbl th {
+  padding:10px 16px; text-align:left; font-size:10px; font-weight:700;
+  letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);
+  border-bottom:1px solid var(--border); background:var(--cream); position:sticky; top:0;
+}
+[data-theme="dark"] .rank-tbl th { background:#242430; border-color:rgba(255,255,255,.06); }
+.rank-tbl td { padding:11px 16px; border-bottom:1px solid var(--border); }
+[data-theme="dark"] .rank-tbl td { border-color:rgba(255,255,255,.05); color:#9a9aaa; }
+.rank-tbl tr:last-child td { border-bottom:none; }
+.rank-tbl tr:hover td { background:var(--cream); }
+[data-theme="dark"] .rank-tbl tr:hover td { background:rgba(255,255,255,.02); }
+.rk-badge {
+  width:28px; height:28px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:800;
+  background:var(--cream); border:1px solid var(--border);
+}
+.rk-badge.g { background:linear-gradient(135deg,#ffd700,#ffa500); color:#000; border:none; }
+.rk-badge.s { background:linear-gradient(135deg,#c0c0c0,#a0a0a0); color:#000; border:none; }
+.rk-badge.b { background:linear-gradient(135deg,#cd7f32,#b87333); color:#fff; border:none; }
+.rank-modal-empty { text-align:center; padding:40px 20px; color:var(--muted); font-size:13px; }
+
+/* View ranking button on card */
+.btn-view-rank {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700;
+  background:rgba(99,102,241,.08); color:#6366f1; border:1px solid rgba(99,102,241,.18);
+  cursor:pointer; transition:all .2s; font-family:'DM Sans',sans-serif; white-space:nowrap;
+}
+.btn-view-rank:hover { background:rgba(99,102,241,.15); border-color:rgba(99,102,241,.35); }
+[data-theme="dark"] .btn-view-rank { background:rgba(129,140,248,.07); color:#818cf8; border-color:rgba(129,140,248,.15); }
+
+/* TOAST */
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(16px);
+  padding:11px 18px; border-radius:12px; font-size:13px; font-weight:500;
+  display:flex; align-items:center; gap:8px; box-shadow:0 8px 32px rgba(0,0,0,.2);
+  z-index:800; opacity:0; pointer-events:none; transition:all .28s cubic-bezier(.22,.68,0,1.2); white-space:nowrap;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.ok  { background:#16a34a; color:#fff; }
+.toast.err { background:#dc2626; color:#fff; }
+[data-theme="dark"] .toast.ok  { background:#22c55e; color:#0a0a0f; }
+.spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:_spin .65s linear infinite; }
+[data-theme="dark"] .spinner { border-color:rgba(10,10,15,.3); border-top-color:#0a0a0f; }
+@keyframes _spin { to { transform:rotate(360deg); } }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
+{% endblock %}
+
+{% block nav_create_subject %}active{% endblock %}
+
+{% block body %}
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="openSidebar()" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Create Subject</span>
+    </div>
+    <button class="dm-toggle" id="dm-toggle" onclick="DM.toggle()" title="Toggle dark mode">
+      <svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <h1>Create Subject</h1>
+      <p>Scan students by branch and year, enroll them, and manage all subjects.</p>
+    </div>
+
+    <div class="page-grid">
+
+      <!-- LEFT: FORM -->
+      <div class="form-card">
+
+        <!-- STEP 1 -->
+        <div class="section-label">
+          <span class="step-badge">1</span>
+          Subject Details
+        </div>
+
+        <div class="field">
+          <label>Subject Name</label>
+          <input type="text" id="subjectName" placeholder="e.g. Data Structures, Thermodynamics…" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label>Semester</label>
+          <div class="sem-row">
+            <select id="semSelect">
+              <option value="">Select semester…</option>
+              <option value="1">Semester 1</option>
+              <option value="2">Semester 2</option>
+              <option value="3">Semester 3</option>
+              <option value="4">Semester 4</option>
+              <option value="5">Semester 5</option>
+              <option value="6">Semester 6</option>
+            </select>
+            <button type="button" class="btn-custom" id="customToggle" onclick="toggleCustom()">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Custom
+            </button>
+          </div>
+          <div class="custom-input-wrap" id="customSemWrap">
+            <input type="number" id="customSem" placeholder="Enter semester number…" min="7" max="20">
+          </div>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <!-- STEP 2 -->
+        <div class="section-label">
+          <span class="step-badge">2</span>
+          Scan Students
+        </div>
+
+        <div class="scan-row">
+          <div class="field" style="margin-bottom:0;">
+            <label>Branch</label>
+            <select id="branch">
+              <option value="">Select branch…</option>
+              <option value="computer science & engineering">Computer Science &amp; Engineering</option>
+              <option value="electrical engineering">Electrical Engineering</option>
+              <option value="mechanical engineering">Mechanical Engineering</option>
+              <option value="Textile">Textile</option>
+              <option value="civil engineering">Civil Engineering</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Join Year</label>
+            <input type="number" id="joinYear" placeholder="e.g. 2023" min="2000" max="2099">
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <button class="btn-scan-batch" id="scanBtn" onclick="scanStudents()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Scan Students
+          </button>
+        </div>
+
+        <!-- Student checklist -->
+        <div class="student-panel" id="studentPanel" style="margin-top:14px;">
+          <div class="sel-all-bar">
+            <label class="chk-label">
+              <input type="checkbox" id="masterChk" checked onchange="toggleAll(this.checked)">
+              Select all
+            </label>
+            <span class="sel-count" id="selCount">0 selected</span>
+          </div>
+          <div class="student-scroll" id="studentList"></div>
+        </div>
+
+        <div class="form-divider" id="execDivider" style="display:none;"></div>
+
+        <div class="section-label" id="step3Label" style="display:none;">
+          <span class="step-badge">3</span>
+          Create &amp; Enroll
+        </div>
+
+        <button class="btn-execute-creation" id="execBtn" style="display:none;" onclick="executeCreation()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Create Subject &amp; Enroll Students
+        </button>
+
+      </div><!-- /form-card -->
+
+      <!-- RIGHT: SUBJECT CARDS (tabbed) -->
+      <div class="list-panel">
+        <div class="list-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="list-title">Subjects</span>
+            <span class="count-badge" id="subjectCount">{% if subjects %}{% set ns = namespace(n=0) %}{% for s in subjects %}{% if not s.is_archived %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}{{ ns.n }}{% else %}0{% endif %}</span>
+          </div>
+          <div class="tab-switcher">
+            <button class="tab-btn active" id="tabActive" onclick="switchTab('active')">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Active
+              <span class="tab-count" id="countActive">{% if subjects %}{% set ns = namespace(n=0) %}{% for s in subjects %}{% if not s.is_archived %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}{{ ns.n }}{% else %}0{% endif %}</span>
+            </button>
+            <button class="tab-btn archived-tab" id="tabArchived" onclick="switchTab('archived')">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              Archived
+              <span class="tab-count" id="countArchived">{% if subjects %}{% set ns = namespace(n=0) %}{% for s in subjects %}{% if s.is_archived %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}{{ ns.n }}{% else %}0{% endif %}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ACTIVE TAB -->
+        <div class="subjects-grid subjects-pane visible" id="paneActive">
+          {% set ns = namespace(has_active=false) %}
+          {% if subjects %}{% for s in subjects %}{% if not s.is_archived %}{% set ns.has_active = true %}{% endif %}{% endfor %}{% endif %}
+          {% if ns.has_active %}
+            {% for s in subjects if not s.is_archived %}
+            <div class="subj-card" id="subj-{{ s.id }}">
+              <div class="subj-card-top">
+                <div class="subj-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a7a10" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <span class="subj-name">{{ s.subject_name }}</span>
+                <div style="display:flex;gap:4px;flex-shrink:0;">
+                  <button class="btn-archive-sub" onclick="handleArchive('{{ s.id }}', '{{ s.subject_name }}')" title="Archive Subject">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                  </button>
+                  <button class="btn-delete-sub" onclick="handleDelete('{{ s.id }}', '{{ s.subject_name }}')" title="Delete Subject">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="subj-meta">
+                <span class="chip chip-branch" title="{{ s.branch }}">{{ s.branch }}</span>
+                <span class="chip chip-sem">Sem {{ s.semester }}</span>
+                <span class="chip chip-year">{{ s.join_year }}</span>
+                <span class="chip chip-stu">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  {{ s.student_count if s.student_count is defined else '—' }}
+                </span>
+                <button class="btn-view-rank" onclick="openSubjectRanking('{{ s.id }}', '{{ s.subject_name }}')">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+                  Rankings
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state" id="emptyState" style="grid-column:1/-1;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <p>No active subjects yet — create the first one!</p>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- ARCHIVED TAB -->
+        <div class="subjects-grid subjects-pane" id="paneArchived">
+          {% set ns2 = namespace(has_archived=false) %}
+          {% if subjects %}{% for s in subjects %}{% if s.is_archived %}{% set ns2.has_archived = true %}{% endif %}{% endfor %}{% endif %}
+          {% if ns2.has_archived %}
+            {% for s in subjects if s.is_archived %}
+            <div class="subj-card archived" id="subj-{{ s.id }}">
+              <div class="subj-card-top">
+                <div class="subj-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <span class="subj-name">{{ s.subject_name }}</span>
+                <button class="btn-activate-sub" onclick="activateSubject('{{ s.id }}', '{{ s.subject_name }}')" title="Re-activate Subject">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/></svg>
+                  Activate
+                </button>
+              </div>
+              <div class="subj-meta">
+                <span class="chip chip-branch" title="{{ s.branch }}">{{ s.branch }}</span>
+                <span class="chip chip-sem">Sem {{ s.semester }}</span>
+                <span class="chip chip-year">{{ s.join_year }}</span>
+                <span class="chip chip-stu">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  {{ s.student_count if s.student_count is defined else '—' }}
+                </span>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state" style="grid-column:1/-1;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              <p>No archived subjects.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div><!-- /page-grid -->
+  </div><!-- /content -->
+</div><!-- /main -->
+<div class="toast" id="toast"></div>
+
+<!-- SUBJECT RANKING MODAL -->
+<div class="rank-modal-overlay" id="rankModalOverlay" onclick="if(event.target===this)closeRankModal()">
+  <div class="rank-modal">
+    <div class="rank-modal-head">
+      <span class="rank-modal-title" id="rankModalTitle">Subject Rankings</span>
+      <button class="rank-modal-close" onclick="closeRankModal()">✕</button>
+    </div>
+    <div class="rank-modal-body" id="rankModalBody">
+      <div class="rank-modal-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let customOn = false;
+
+function toggleCustom() {
+  customOn = !customOn;
+  const btn  = document.getElementById('customToggle');
+  const wrap = document.getElementById('customSemWrap');
+  const sel  = document.getElementById('semSelect');
+  btn.classList.toggle('on', customOn);
+  wrap.classList.toggle('show', customOn);
+  sel.disabled      = customOn;
+  sel.style.opacity = customOn ? '.35' : '1';
+  if (customOn) document.getElementById('customSem').focus();
+  else document.getElementById('customSem').value = '';
+}
+
+/* ── STEP 2: Scan students ── */
+async function scanStudents() {
+  const branch = document.getElementById('branch').value;
+  const year   = document.getElementById('joinYear').value.trim();
+  if (!branch) { toast('Please select a branch first.', 'err'); return; }
+  if (!year)   { toast('Please enter a join year.', 'err'); return; }
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Scanning…';
+
+  try {
+    const _t  = Date.now();
+    const res = await fetch(
+      `/attendance/search-users?branch=${encodeURIComponent(branch.trim())}&year=${encodeURIComponent(year)}&_t=${_t}`,
+      { cache: 'no-store' }
+    );
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return; }
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') { toast(data.msg || 'Failed to fetch students.', 'err'); return; }
+    renderStudentList(Array.isArray(data) ? data : (data.students || []));
+  } catch(e) {
+    toast('Connection error — please retry.', 'err');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Scan Students';
+}
+
+function renderStudentList(students) {
+  const panel   = document.getElementById('studentPanel');
+  const list    = document.getElementById('studentList');
+  const divider = document.getElementById('execDivider');
+  const step3   = document.getElementById('step3Label');
+  const execBtn = document.getElementById('execBtn');
+
+  document.getElementById('masterChk').checked = true;
+
+  if (!students.length) {
+    list.innerHTML = `<div class="empty-scan">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      No students found for this branch &amp; year.
+    </div>`;
+    panel.classList.add('show');
+    divider.style.display = 'none';
+    step3.style.display   = 'none';
+    execBtn.style.display = 'none';
+    updateSelCount();
+    return;
+  }
+
+  list.innerHTML = '';
+  students.forEach(stu => {
+    const row = document.createElement('div');
+    row.className = 'stu-row';
+    row.dataset.id = stu.id;
+    const initial = String(stu.name || stu.display_name || '?')[0].toUpperCase();
+    row.innerHTML = `
+      <input type="checkbox" checked onchange="onStuCheck(this)">
+      <div class="stu-avt">${escH(initial)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="stu-name">${escH(stu.name || stu.display_name || 'Unknown')}</div>
+        <div class="stu-reg">${escH(stu.username || '')}</div>
+      </div>`;
+    row.addEventListener('click', e => { if (e.target.type !== 'checkbox') row.querySelector('input').click(); });
+    list.appendChild(row);
+  });
+
+  panel.classList.add('show');
+  divider.style.display = 'block';
+  step3.style.display   = 'flex';
+  execBtn.style.display = 'flex';
+  updateSelCount();
+  toast(`Found ${students.length} student${students.length !== 1 ? 's' : ''}.`, 'ok');
+}
+
+function onStuCheck(cb) {
+  cb.closest('.stu-row').classList.toggle('unchecked', !cb.checked);
+  const all = [...document.querySelectorAll('.student-scroll .stu-row input[type="checkbox"]')];
+  document.getElementById('masterChk').checked = all.every(c => c.checked);
+  updateSelCount();
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.student-scroll .stu-row input[type="checkbox"]').forEach(cb => {
+    cb.checked = checked;
+    cb.closest('.stu-row').classList.toggle('unchecked', !checked);
+  });
+  updateSelCount();
+}
+
+function updateSelCount() {
+  const all     = [...document.querySelectorAll('.student-scroll .stu-row input[type="checkbox"]')];
+  const checked = all.filter(c => c.checked).length;
+  document.getElementById('selCount').textContent = `${checked} of ${all.length} selected`;
+}
+
+/* ── STEP 3: Create subject + enroll ── */
+async function executeCreation() {
+  const name   = document.getElementById('subjectName').value.trim();
+  const branch = document.getElementById('branch').value;
+  const year   = document.getElementById('joinYear').value.trim();
+  const sem    = customOn ? document.getElementById('customSem').value.trim()
+                          : document.getElementById('semSelect').value;
+
+  if (!name)   { toast('Please enter a subject name.', 'err'); return; }
+  if (!branch) { toast('Please select a branch.', 'err'); return; }
+  if (!year)   { toast('Please enter a join year.', 'err'); return; }
+  if (!sem)    { toast('Please select or enter a semester.', 'err'); return; }
+
+  const checkedIds = [...document.querySelectorAll('.student-scroll .stu-row input[type="checkbox"]:checked')]
+                       .map(cb => cb.closest('.stu-row').dataset.id);
+  if (!checkedIds.length) { toast('Select at least one student to enroll.', 'err'); return; }
+
+  const btn = document.getElementById('execBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating…';
+
+  try {
+    const fd = new FormData();
+    fd.append('subject_name', name);
+    fd.append('branch', branch);
+    fd.append('join_year', year);
+    fd.append('semester', sem);
+    checkedIds.forEach(id => fd.append('student_ids', id));
+
+    const res  = await fetch('/attendance/create-subject', { method:'POST', body:fd });
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return; }
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.status !== 'error') {
+      toast(`Subject created — ${checkedIds.length} student${checkedIds.length !== 1 ? 's' : ''} enrolled!`, 'ok');
+
+      /* Live-insert new card */
+      const grid  = document.getElementById('paneActive');
+      const empty = document.getElementById('emptyState');
+      if (empty) empty.remove();
+
+      const newId = data.subject_id || data.id || '';
+      const card  = document.createElement('div');
+      card.className = 'subj-card';
+      if (newId) card.id = `subj-${newId}`;
+      card.innerHTML = `
+        <div class="subj-card-top">
+          <div class="subj-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a7a10" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <span class="subj-name">${escH(name)}</span>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button class="btn-archive-sub" onclick="handleArchive('${newId}', '${escH(name)}')" title="Archive Subject">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            </button>
+            <button class="btn-delete-sub" onclick="handleDelete('${newId}', '${escH(name)}')" title="Delete Subject">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="subj-meta">
+          <span class="chip chip-branch" title="${escH(branch)}">${escH(branch)}</span>
+          <span class="chip chip-sem">Sem ${escH(sem)}</span>
+          <span class="chip chip-year">${escH(year)}</span>
+          <span class="chip chip-stu">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            ${checkedIds.length}
+          </span>
+        </div>`;
+      grid.appendChild(card);
+      const c = document.getElementById('subjectCount');
+      const newCount = parseInt(c.textContent || 0) + 1;
+      c.textContent = newCount;
+      document.getElementById('countActive').textContent = newCount;
+
+      /* Reset form */
+      document.getElementById('subjectName').value = '';
+      document.getElementById('semSelect').value   = '';
+      document.getElementById('branch').value      = '';
+      document.getElementById('joinYear').value    = '';
+      if (customOn) toggleCustom();
+      document.getElementById('studentPanel').classList.remove('show');
+      document.getElementById('execDivider').style.display = 'none';
+      document.getElementById('step3Label').style.display  = 'none';
+      document.getElementById('execBtn').style.display     = 'none';
+      document.getElementById('studentList').innerHTML     = '';
+    } else {
+      toast(data.msg || 'Something went wrong.', 'err');
+    }
+  } catch(e) {
+    toast('Connection error — please retry.', 'err');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Create Subject &amp; Enroll Students';
+}
+
+/* ── Archive subject (double-confirm) ── */
+/* ── performToggle: shared API call for archive/activate ── */
+async function performToggle(id, status) {
+  const fd = new FormData();
+  fd.append('status', status);
+  try {
+    const res  = await fetch(`/attendance/toggle-archive/${id}`, { method:'POST', body:fd });
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return false; }
+    const data = await res.json();
+    return data.status === 'success';
+  } catch(e) { return false; }
+}
+
+/* ── Archive (Active → Archived) ── */
+async function handleArchive(id, name) {
+  if (!confirm(`Archive "${name}"?\n\nArchiving will lock this subject — no new attendance can be marked.`)) return;
+  if (!confirm(`FINAL WARNING: This subject will be permanently locked.\nYou will NOT be able to mark new attendance.\n\nProceed?`)) return;
+
+  const ok = await performToggle(id, 1);
+  if (!ok) { toast('Archive failed.', 'err'); return; }
+
+  toast('Subject archived.', 'ok');
+  const card = document.getElementById(`subj-${id}`);
+  if (!card) return;
+
+  card.style.transition = 'opacity .3s, transform .3s';
+  card.style.opacity = '0'; card.style.transform = 'scale(.95)';
+  setTimeout(() => {
+    /* Snapshot name/meta before removing */
+    const subjName = card.querySelector('.subj-name')?.textContent || '';
+    const metaHTML = card.querySelector('.subj-meta')?.outerHTML || '';
+    card.remove();
+
+    /* Update active count */
+    const ca = document.getElementById('countActive');
+    const newActive = Math.max(0, parseInt(ca.textContent || 0) - 1);
+    ca.textContent = newActive;
+    document.getElementById('subjectCount').textContent = newActive;
+
+    /* Empty state for active pane if needed */
+    const paneA = document.getElementById('paneActive');
+    if (!paneA.querySelector('.subj-card')) {
+      paneA.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <p>No active subjects yet — create the first one!</p>
+      </div>`;
+    }
+
+    /* Add clean archived card to archived pane */
+    const paneB = document.getElementById('paneArchived');
+    paneB.querySelector('.empty-state')?.remove();
+    const ac = document.createElement('div');
+    ac.className = 'subj-card archived'; ac.id = `subj-${id}`;
+    ac.innerHTML = `
+      <div class="subj-card-top">
+        <div class="subj-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <span class="subj-name">${escH(subjName)}</span>
+        <button class="btn-activate-sub" onclick="activateSubject('${id}', '${escH(subjName)}')" title="Re-activate">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/></svg>
+          Activate
+        </button>
+      </div>
+      ${metaHTML}`;
+    paneB.appendChild(ac);
+
+    /* Update archived count */
+    const cb = document.getElementById('countArchived');
+    cb.textContent = parseInt(cb.textContent || 0) + 1;
+
+    switchTab('archived');
+  }, 320);
+}
+
+/* ── Activate (Archived → Active) ── */
+async function activateSubject(id, name) {
+  if (!confirm(`Re-activate "${name}"?`)) return;
+  if (!confirm(`This will make "${name}" available for marking attendance again.\n\nProceed?`)) return;
+
+  const ok = await performToggle(id, 0);
+  if (!ok) { toast('Activation failed.', 'err'); return; }
+
+  toast('Subject activated.', 'ok');
+  const card = document.getElementById(`subj-${id}`);
+  if (!card) return;
+
+  card.style.transition = 'opacity .3s, transform .3s';
+  card.style.opacity = '0'; card.style.transform = 'scale(.95)';
+  setTimeout(() => {
+    /* Snapshot name/meta */
+    const subjName = card.querySelector('.subj-name')?.textContent || '';
+    const metaHTML = card.querySelector('.subj-meta')?.outerHTML || '';
+    card.remove();
+
+    /* Update archived count */
+    const cb = document.getElementById('countArchived');
+    const newArchived = Math.max(0, parseInt(cb.textContent || 0) - 1);
+    cb.textContent = newArchived;
+
+    /* Empty state for archived pane if needed */
+    const paneB = document.getElementById('paneArchived');
+    if (!paneB.querySelector('.subj-card')) {
+      paneB.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <p>No archived subjects.</p>
+      </div>`;
+    }
+
+    /* Add clean active card to active pane */
+    const paneA = document.getElementById('paneActive');
+    paneA.querySelector('.empty-state')?.remove();
+    const nc = document.createElement('div');
+    nc.className = 'subj-card'; nc.id = `subj-${id}`;
+    nc.innerHTML = `
+      <div class="subj-card-top">
+        <div class="subj-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a7a10" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <span class="subj-name">${escH(subjName)}</span>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+          <button class="btn-archive-sub" onclick="handleArchive('${id}', '${escH(subjName)}')" title="Archive">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          </button>
+          <button class="btn-delete-sub" onclick="handleDelete('${id}', '${escH(subjName)}')" title="Delete">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+      ${metaHTML}`;
+
+    /* Update active count */
+    const ca = document.getElementById('countActive');
+    ca.textContent = parseInt(ca.textContent || 0) + 1;
+    document.getElementById('subjectCount').textContent = parseInt(ca.textContent);
+
+    switchTab('active');
+  }, 320);
+}
+
+/* ── Delete subject (double-confirm) ── */
+async function handleDelete(id, name) {
+  if (!confirm(`Permanently DELETE "${name}"?\n\nThis will erase all attendance records for every enrolled student.`)) return;
+  if (!confirm(`CRITICAL WARNING: This action cannot be undone.\nAll attendance history will be erased forever.\n\nAre you absolutely certain?`)) return;
+
+  try {
+    const res  = await fetch(`/attendance/delete-subject/${id}`, { method:'POST' });
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return; }
+    const data = await res.json();
+    if (data.status === 'success') {
+      toast('Subject and all records deleted.', 'ok');
+      const card = document.getElementById(`subj-${id}`) || document.activeElement.closest('.subj-card');
+      if (card) {
+        card.style.transition = 'opacity .3s, transform .3s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(.95)';
+        setTimeout(() => {
+          card.remove();
+          const c = document.getElementById('subjectCount');
+          c.textContent = Math.max(0, parseInt(c.textContent || 0) - 1);
+          const grid = document.getElementById('paneActive');
+          if (!grid.querySelector('.subj-card')) {
+            grid.innerHTML = `<div class="empty-state" id="emptyState" style="grid-column:1/-1;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <p>No active subjects yet — create the first one!</p>
+            </div>`;
+          }
+        }, 320);
+      }
+    } else {
+      toast(data.msg || 'Deletion failed.', 'err');
+    }
+  } catch(e) { toast('Connection error.', 'err'); }
+}
+
+/* ── TAB SWITCHER ── */
+function switchTab(tab) {
+  const isActive = tab === 'active';
+  document.getElementById('paneActive').classList.toggle('visible', isActive);
+  document.getElementById('paneArchived').classList.toggle('visible', !isActive);
+  document.getElementById('tabActive').classList.toggle('active', isActive);
+  document.getElementById('tabArchived').classList.toggle('active', !isActive);
+}
+
+function toast(msg, type) {
+  const el   = document.getElementById('toast');
+  const icon = type === 'ok'
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  el.innerHTML = icon + ' ' + msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = 'toast', 3400);
+}
+
+/* ── Subject Ranking Modal ── */
+async function openSubjectRanking(subjectId, subjectName) {
+  const overlay = document.getElementById('rankModalOverlay');
+  const title   = document.getElementById('rankModalTitle');
+  const body    = document.getElementById('rankModalBody');
+
+  title.textContent = subjectName + ' — Rankings';
+  body.innerHTML = `<div style="padding:36px;text-align:center;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:10px;">
+    <div style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:_spin .7s linear infinite"></div>
+    Loading…</div>`;
+  overlay.classList.add('open');
+
+  try {
+    const _t = Date.now();
+    const res  = await fetch(`/attendance/subject-rank/${subjectId}?_t=${_t}`, { cache:'no-store' });
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return; }
+    const data = await res.json();
+    const students = data.students || [];
+
+    if (!students.length) {
+      body.innerHTML = `<div class="rank-modal-empty">No attendance data yet for this subject.</div>`;
+      return;
+    }
+
+    // Apply dense ranking on the already-sorted students array:
+    // same % = same rank, next group = rank+1 (1,1,2,2 not 1,1,3,3)
+    let currRank = 0, lastPerc = -1;
+    students.forEach(s => {
+      const p = s.overall_perc !== undefined ? parseFloat(s.overall_perc)
+                : (s.total_classes > 0 ? (s.attended_classes / s.total_classes) * 100 : 0);
+      if (p !== lastPerc) currRank++;
+      s._rank = currRank;
+      lastPerc = p;
+    });
+
+    const rows = students.map((s) => {
+      const rank = s._rank;
+      const bc   = rank === 1 ? 'g' : (rank === 2 ? 's' : (rank === 3 ? 'b' : ''));
+      const perc = s.overall_perc !== undefined
+        ? parseFloat(s.overall_perc).toFixed(1)
+        : (s.total_classes > 0 ? ((s.attended_classes / s.total_classes) * 100).toFixed(1) : '0.0');
+      const tc = parseFloat(perc) >= 75 ? '#16a34a' : (parseFloat(perc) >= 60 ? '#d97706' : '#dc2626');
+      return `<tr>
+        <td><span class="rk-badge ${bc}">${rank}</span></td>
+        <td><strong>${escH(s.display_name || s.name || 'Unknown')}</strong><br>
+          <span style="font-size:11px;color:var(--muted);font-family:monospace;">${escH(s.username || '')}</span></td>
+        <td>${s.attended_classes}</td>
+        <td>${s.total_classes}</td>
+        <td><strong style="color:${tc};">${perc}%</strong></td>
+      </tr>`;
+    }).join('');
+
+    body.innerHTML = `
+      <table class="rank-tbl">
+        <thead><tr><th>#</th><th>Student</th><th>Attended</th><th>Total</th><th>%</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } catch(e) {
+    body.innerHTML = `<div class="rank-modal-empty" style="color:#dc2626;">Failed to load rankings.</div>`;
+  }
+}
+
+function closeRankModal() {
+  document.getElementById('rankModalOverlay').classList.remove('open');
+}
+
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

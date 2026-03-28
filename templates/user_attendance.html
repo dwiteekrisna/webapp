@@ -1,0 +1,422 @@
+{% extends "core.html" %}
+{% block title %}LaceBit AI — My Attendance{% endblock %}
+
+{% block extra_style %}
+.sidebar {
+  width:var(--sidebar-w); flex-shrink:0;
+  position:relative; transform:none; z-index:100; transition:none;
+}
+@media(max-width:768px){
+  .app { position:relative; }
+  .sidebar { position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w); transform:translateX(-100%); transition:transform .3s cubic-bezier(.22,.68,0,1.2); z-index:500; }
+  .sidebar.open { transform:translateX(0); }
+  .sidebar-overlay { display:block; }
+  .hamburger { display:flex; }
+}
+@media(min-width:769px){ .hamburger { display:none; } }
+
+.main { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+
+.topbar {
+  background:rgba(245,243,238,.72); border-bottom:1px solid var(--border);
+  padding:14px clamp(16px,4vw,36px); display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(24px) saturate(1.8); -webkit-backdrop-filter:blur(24px) saturate(1.8);
+  box-shadow:0 1px 0 rgba(255,255,255,.8), 0 2px 12px rgba(0,0,0,.05);
+}
+[data-theme="dark"] .topbar { background:rgba(17,17,20,.8); border-color:rgba(255,255,255,.06); box-shadow:0 1px 0 rgba(255,255,255,.04), 0 2px 12px rgba(0,0,0,.3); }
+.topbar-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+
+.content { padding:clamp(20px,4vw,40px); flex:1; }
+
+/* ── Overview stats ── */
+.overview-row {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:16px; margin-bottom:32px;
+  animation:fadeUp .35s ease both;
+}
+.ov-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:18px; padding:20px 22px;
+  box-shadow:0 2px 16px rgba(0,0,0,.05); position:relative; overflow:hidden;
+}
+.ov-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.4) 0%,transparent 60%); pointer-events:none; }
+[data-theme="dark"] .ov-card { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.08); }
+[data-theme="dark"] .ov-card::before { background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 60%); }
+.ov-num { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; line-height:1; }
+.ov-label { color:var(--muted); font-size:12px; margin-top:6px; }
+.perc-good { color:#16a34a; }
+.perc-warn { color:#d97706; }
+.perc-bad  { color:#dc2626; }
+
+/* ── Semester Section ── */
+.sem-section { margin-bottom:28px; animation:fadeUp .4s ease both; }
+
+.sem-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px; flex-wrap:wrap; gap:10px;
+}
+.sem-title-group { display:flex; align-items:center; gap:12px; }
+.sem-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; }
+.sem-perc-badge {
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  padding:5px 14px; border-radius:20px; background:var(--cream);
+  border:1px solid var(--border);
+}
+.sem-perc-badge.good { background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.25); color:#16a34a; }
+.sem-perc-badge.warn { background:rgba(217,119,6,.1); border-color:rgba(217,119,6,.25); color:#d97706; }
+.sem-perc-badge.bad  { background:rgba(220,38,38,.08); border-color:rgba(220,38,38,.2); color:#dc2626; }
+[data-theme="dark"] .sem-perc-badge { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.1); }
+
+.btn-rank {
+  display:flex; align-items:center; gap:7px;
+  padding:8px 16px; border:1.5px solid var(--border);
+  border-radius:10px; background:none; cursor:pointer;
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
+  color:var(--muted); transition:all .2s;
+}
+.btn-rank:hover { border-color:var(--ink); color:var(--ink); background:var(--cream); }
+[data-theme="dark"] .btn-rank { border-color:rgba(255,255,255,.08); }
+[data-theme="dark"] .btn-rank:hover { border-color:rgba(255,255,255,.2); color:#c9c7c0; background:rgba(255,255,255,.04); }
+
+/* ── Subject Table ── */
+.subject-table-wrap {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:18px; overflow:hidden;
+  box-shadow:0 2px 16px rgba(0,0,0,.05);
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+[data-theme="dark"] .subject-table-wrap { border-color:rgba(255,255,255,.07); }
+
+.subject-table { width:100%; border-collapse:collapse; }
+.subject-table th {
+  padding:13px 20px; text-align:left;
+  font-size:11px; font-weight:600; letter-spacing:1.2px;
+  text-transform:uppercase; color:var(--muted);
+  border-bottom:1px solid var(--border); background:var(--cream);
+}
+[data-theme="dark"] .subject-table th { background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.06); }
+.subject-table td { padding:12px 14px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle; }
+@media(max-width:480px){ .subject-table td { padding:10px 10px; font-size:13px; } }
+[data-theme="dark"] .subject-table td { border-color:rgba(255,255,255,.05); }
+.subject-table tr:last-child td { border-bottom:none; }
+.subject-table tr:hover td { background:var(--cream); }
+[data-theme="dark"] .subject-table tr:hover td { background:rgba(255,255,255,.025); }
+
+.sub-name { font-weight:600; font-size:15px; }
+.sub-classes { color:var(--muted); font-size:13px; }
+
+.perc-bar-wrap { display:flex; align-items:center; gap:6px; min-width:120px; }
+@media(max-width:480px){ .perc-bar-wrap { min-width:90px; gap:4px; } }
+.perc-bar-bg { flex:1; height:6px; background:var(--cream); border-radius:10px; overflow:hidden; }
+[data-theme="dark"] .perc-bar-bg { background:rgba(255,255,255,.08); }
+.perc-bar-fill { height:100%; border-radius:10px; transition:width .6s cubic-bezier(.22,.68,0,1.2); }
+.fill-good { background:linear-gradient(90deg,#22c55e,#16a34a); }
+.fill-warn { background:linear-gradient(90deg,#f59e0b,#d97706); }
+.fill-bad  { background:linear-gradient(90deg,#ef4444,#dc2626); }
+.perc-text { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; min-width:42px; text-align:right; }
+
+/* ── Ranking Modal (floating, blur backdrop) ── */
+.rank-modal-overlay {
+  position:fixed; inset:0; z-index:600;
+  background:rgba(10,10,15,.55);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px; opacity:0; pointer-events:none;
+  transition:opacity .25s;
+}
+.rank-modal-overlay.open { opacity:1; pointer-events:all; }
+
+.rank-modal {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:20px; width:100%; max-width:580px; max-height:82vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.25);
+  transform:translateY(16px) scale(.98);
+  transition:transform .28s cubic-bezier(.22,.68,0,1.2);
+}
+.rank-modal-overlay.open .rank-modal { transform:translateY(0) scale(1); }
+[data-theme="dark"] .rank-modal { background:#1c1c24; border-color:rgba(255,255,255,.08); }
+
+.rank-modal-head {
+  padding:18px 22px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+[data-theme="dark"] .rank-modal-head { border-color:rgba(255,255,255,.07); }
+
+.rank-modal-title {
+  font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:var(--ink);
+}
+[data-theme="dark"] .rank-modal-title { color:#c9c7c0; }
+
+.rank-modal-close {
+  width:30px; height:30px; border-radius:8px; border:1px solid var(--border);
+  background:none; cursor:pointer; color:var(--muted); font-size:16px;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.rank-modal-close:hover { border-color:var(--ink); color:var(--ink); }
+
+.rank-modal-body { overflow-y:auto; flex:1; min-height:0; }
+.rank-modal-body::-webkit-scrollbar { width:4px; }
+.rank-modal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+/* table inside modal */
+.rank-table { width:100%; border-collapse:collapse; }
+.rank-table th {
+  padding:11px 18px; font-size:10px; font-weight:700;
+  letter-spacing:1.3px; text-transform:uppercase; color:var(--muted);
+  border-bottom:1px solid var(--border); background:var(--cream);
+  text-align:left; position:sticky; top:0; z-index:1;
+}
+[data-theme="dark"] .rank-table th { background:#242430; border-color:rgba(255,255,255,.06); }
+.rank-table td { padding:12px 18px; border-bottom:1px solid var(--border); font-size:14px; }
+[data-theme="dark"] .rank-table td { border-color:rgba(255,255,255,.05); color:#9a9aaa; }
+.rank-table tr:last-child td { border-bottom:none; }
+.rank-table tr:hover td { background:var(--cream); }
+[data-theme="dark"] .rank-table tr:hover td { background:rgba(255,255,255,.025); }
+
+.rank-num {
+  width:30px; height:30px; border-radius:50%; background:var(--cream);
+  display:inline-flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:800;
+  border:1px solid var(--border);
+}
+.rank-num.top1 { background:linear-gradient(135deg,#ffd700,#ffa500); color:#000; border:none; }
+.rank-num.top2 { background:linear-gradient(135deg,#c0c0c0,#a0a0a0); color:#000; border:none; }
+.rank-num.top3 { background:linear-gradient(135deg,#cd7f32,#b87333); color:#fff; border:none; }
+.rank-me { background:rgba(200,240,74,.08) !important; }
+[data-theme="dark"] .rank-me { background:rgba(168,204,48,.06) !important; }
+.rank-modal-empty { text-align:center; padding:48px 20px; color:var(--muted); font-size:13px; }
+
+/* ── Archived badge ── */
+.archived-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+  padding:2px 8px; border-radius:20px;
+  background:rgba(107,114,128,.1); border:1px solid rgba(107,114,128,.25);
+  color:#6b7280; margin-left:8px; vertical-align:middle;
+}
+[data-theme="dark"] .archived-badge { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.12); color:#9ca3af; }
+
+.no-data {
+  text-align:center; padding:60px 20px; color:var(--muted);
+  animation:fadeUp .4s ease both;
+}
+.no-data svg { display:block; margin:0 auto 16px; opacity:.2; }
+.no-data h3 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--ink); margin-bottom:8px; }
+[data-theme="dark"] .no-data h3 { color:#c9c7c0; }
+
+@media(max-width:600px){
+  .subject-table th:nth-child(3), .subject-table td:nth-child(3) { display:none; }
+}
+@media(max-width:400px){
+  .subject-table th:nth-child(2), .subject-table td:nth-child(2) { display:none; }
+  .perc-text { min-width:36px; font-size:12px; }
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+{% endblock %}
+
+{% block nav_attendance %}active{% endblock %}
+
+{% block body %}
+<div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="hamburger" onclick="openSidebar()" aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="topbar-title">My Attendance</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="dm-toggle" id="dm-toggle" onclick="DM.toggle()" title="Toggle dark mode">
+          <svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+      {% if stats %}
+        {# Compute totals from the HIGHEST semester only #}
+        {% set ns = namespace(tot_att=0, tot_cls=0, subj_count=0) %}
+        {% set sorted_sems = stats.items()|list %}
+        {% if sorted_sems %}
+          {% set highest_sem_data = sorted_sems[0][1] %}
+          {% set ns.tot_att = highest_sem_data.overall_attended %}
+          {% set ns.tot_cls = highest_sem_data.overall_total %}
+          {% set ns.subj_count = highest_sem_data.subjects|length %}
+        {% endif %}
+        {% set overall_perc = ((ns.tot_att / ns.tot_cls) * 100) | round(1) if ns.tot_cls > 0 else 0 %}
+
+        <div class="overview-row">
+          <div class="ov-card">
+            <div class="ov-num {% if overall_perc >= 75 %}perc-good{% elif overall_perc >= 60 %}perc-warn{% else %}perc-bad{% endif %}">{{ overall_perc }}%</div>
+            <div class="ov-label">Overall Attendance</div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-num">{{ ns.subj_count }}</div>
+            <div class="ov-label">Active Subjects</div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-num">{{ ns.tot_att }}</div>
+            <div class="ov-label">Classes Attended</div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-num">{{ ns.tot_cls - ns.tot_att }}</div>
+            <div class="ov-label">Classes Missed</div>
+          </div>
+        </div>
+
+        {% for sem_key, sem_data in stats.items() %}
+          {% set sp = sem_data.overall_perc | round(1) %}
+          {% set sp_cls = 'good' if sp >= 75 else ('warn' if sp >= 60 else 'bad') %}
+          <div class="sem-section" style="animation-delay:{{ loop.index0 * 0.08 }}s;"
+               data-sem="{{ sem_key }}"
+               data-subjects="{{ sem_data.subjects | map(attribute='subject_id') | list | join(',') }}">
+            <div class="sem-header">
+              <div class="sem-title-group">
+                <span class="sem-title">Semester {{ sem_key }}</span>
+                <span class="sem-perc-badge {{ sp_cls }}">{{ sp }}%</span>
+              </div>
+              <button class="btn-rank" onclick="loadRanking('{{ sem_key }}', this)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+                View Rankings
+              </button>
+            </div>
+
+            <div class="subject-table-wrap">
+              <table class="subject-table">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Attended</th>
+                    <th>Total</th>
+                    <th>Percentage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for sub in sem_data.subjects %}
+                    {% set perc = ((sub.attended_classes / sub.total_classes) * 100) | round(1) if sub.total_classes > 0 else 0 %}
+                    {% set fc = 'fill-good' if perc >= 75 else ('fill-warn' if perc >= 60 else 'fill-bad') %}
+                    {% set tc = 'perc-good' if perc >= 75 else ('perc-warn' if perc >= 60 else 'perc-bad') %}
+                    <tr>
+                      <td><div class="sub-name">{{ sub.subject_name }}{% if sub.is_archived %}<span class="archived-badge">Archived</span>{% endif %}</div></td>
+                      <td><span class="sub-classes">{{ sub.attended_classes }}</span></td>
+                      <td><span class="sub-classes">{{ sub.total_classes }}</span></td>
+                      <td>
+                        <div class="perc-bar-wrap">
+                          <div class="perc-bar-bg">
+                            <div class="perc-bar-fill {{ fc }}" style="width:{{ perc }}%"></div>
+                          </div>
+                          <span class="perc-text {{ tc }}">{{ perc }}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+
+          </div>
+        {% endfor %}
+
+      {% else %}
+        <div class="no-data">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <h3>No attendance records yet</h3>
+          <p>Your attendance will appear here once your teacher marks it.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- RANKING MODAL — shared for all semesters -->
+<div class="rank-modal-overlay" id="rankModalOverlay" onclick="if(event.target===this)closeRankModal()">
+  <div class="rank-modal">
+    <div class="rank-modal-head">
+      <span class="rank-modal-title" id="rankModalTitle">Rankings</span>
+      <button class="rank-modal-close" onclick="closeRankModal()">✕</button>
+    </div>
+    <div class="rank-modal-body" id="rankModalBody">
+      <div class="rank-modal-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+const CURRENT_USER_ID = '{{ user.id if user else "" }}';
+
+async function loadRanking(semKey, btn) {
+  const overlay = document.getElementById('rankModalOverlay');
+  const title   = document.getElementById('rankModalTitle');
+  const body    = document.getElementById('rankModalBody');
+
+  title.textContent = 'Semester ' + semKey + ' — Rankings';
+  body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:10px;">
+    <div style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin .7s linear infinite"></div>
+    Loading rankings…</div>`;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  const section    = document.querySelector(`.sem-section[data-sem="${semKey}"]`);
+  const subjectIds = section ? section.dataset.subjects : '';
+
+  try {
+    const res  = await fetch(`/attendance/rank?semester=${encodeURIComponent(semKey)}&subject_ids=${encodeURIComponent(subjectIds)}`);
+    const data = await res.json();
+    const students = data.students || [];
+
+    if (!students.length) {
+      body.innerHTML = `<div class="rank-modal-empty">No ranking data available for this semester yet.</div>`;
+      btn.disabled = false; return;
+    }
+
+    const rows = students.map((s, i) => {
+      // Use s.rank (from backend) not loop index i — so tied ranks get same badge colour
+      const rank = s.rank || (i + 1);
+      const rankClass = rank === 1 ? 'top1' : (rank === 2 ? 'top2' : (rank === 3 ? 'top3' : ''));
+      const isMe = String(s.id) === String(CURRENT_USER_ID);
+
+      const perc     = s.overall_perc !== undefined ? parseFloat(s.overall_perc) : 0;
+      const attended = s.total_attended !== undefined ? s.total_attended : 0;
+      const total    = s.total_possible !== undefined ? s.total_possible : 0;
+      const tc = perc >= 75 ? 'perc-good' : (perc >= 60 ? 'perc-warn' : 'perc-bad');
+
+      return `<tr class="${isMe ? 'rank-me' : ''}">
+        <td><div class="rank-num ${rankClass}">${rank}</div></td>
+        <td>
+          <strong>${escH(s.display_name || s.name || 'Unknown')}</strong>
+          ${isMe ? '<span style="font-size:11px;color:var(--muted);margin-left:4px;">(you)</span>' : ''}
+        </td>
+        <td>${attended}</td>
+        <td>${total}</td>
+        <td><strong class="${tc}">${perc}%</strong></td>
+      </tr>`;
+    }).join('');
+
+    body.innerHTML = `
+      <table class="rank-table">
+        <thead>
+          <tr><th>Rank</th><th>Student</th><th>Attended</th><th>Total</th><th>%</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } catch(e) {
+    body.innerHTML = `<div class="rank-modal-empty" style="color:#dc2626;">Failed to load. Please try again.</div>`;
+  }
+  btn.disabled = false;
+}
+
+function closeRankModal() {
+  document.getElementById('rankModalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

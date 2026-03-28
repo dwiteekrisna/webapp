@@ -1,0 +1,518 @@
+{% extends "core.html" %}
+{% block title %}LaceBit AI — Mark Attendance{% endblock %}
+
+{% block extra_style %}
+.sidebar { width:var(--sidebar-w); flex-shrink:0; position:relative; transform:none; z-index:100; transition:none; }
+@media(max-width:768px){
+  .app { position:relative; }
+  .sidebar { position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w); transform:translateX(-100%); transition:transform .3s cubic-bezier(.22,.68,0,1.2); z-index:500; }
+  .sidebar.open { transform:translateX(0); }
+  .sidebar-overlay { display:block; }
+  .hamburger { display:flex; }
+}
+@media(min-width:769px){ .hamburger { display:none; } }
+
+.main { flex:1; display:flex; flex-direction:column; min-height:0; }
+.topbar {
+  background:rgba(245,243,238,.72); border-bottom:1px solid rgba(255,255,255,.7);
+  padding:14px clamp(16px,4vw,36px); display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0; z-index:50;
+  backdrop-filter:blur(24px) saturate(1.8); -webkit-backdrop-filter:blur(24px) saturate(1.8);
+  box-shadow:0 1px 0 rgba(255,255,255,.8), 0 2px 12px rgba(0,0,0,.05);
+}
+[data-theme="dark"] .topbar { background:rgba(17,17,20,.8); border-color:rgba(255,255,255,.06); box-shadow:0 1px 0 rgba(255,255,255,.04); }
+.topbar-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+
+/* SCROLL AREA */
+.scroll-area { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; }
+.content { padding:clamp(16px,4vw,36px); flex:1; }
+
+/* PAGE HEADER */
+.page-header { margin-bottom:24px; animation:fadeUp .4s ease both; }
+.page-header h1 { font-family:'Syne',sans-serif; font-size:clamp(22px,3vw,30px); font-weight:800; margin-bottom:5px; }
+.page-header p { color:var(--muted); font-size:14px; }
+[data-theme="dark"] .page-header h1 { color:#c9c7c0; }
+
+/* FILTER BAR (step 1: select branch → semester → subject + date) */
+.filter-card {
+  background:var(--card); border:1px solid var(--border); border-radius:18px;
+  padding:20px 22px; margin-bottom:22px; animation:fadeUp .4s ease .04s both;
+  min-width:0; box-sizing:border-box;
+  box-shadow:0 2px 12px rgba(0,0,0,.05);
+}
+[data-theme="dark"] .filter-card { background:#181820; border-color:rgba(255,255,255,.07); }
+
+.filter-label {
+  font-size:11px; font-weight:700; letter-spacing:1.3px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:8px;
+}
+.filter-label::after { content:''; flex:1; height:1px; background:var(--border); }
+[data-theme="dark"] .filter-label { color:#3a3a48; }
+[data-theme="dark"] .filter-label::after { background:rgba(255,255,255,.06); }
+
+.filter-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
+@media(min-width:1100px){ .filter-row { grid-template-columns:1fr 1fr 1fr 1fr auto; } }
+@media(min-width:900px) and (max-width:1099px){ .filter-row { grid-template-columns:1fr 1fr 1fr; } }
+@media(max-width:520px){ .filter-row { grid-template-columns:1fr; } }
+
+.fld { display:flex; flex-direction:column; }
+.fld label { font-size:11px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.fld select, .fld input[type="date"] {
+  padding:10px 13px; border:1.5px solid var(--border); border-radius:10px;
+  background:var(--cream); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--ink);
+  outline:none; transition:border-color .2s; -webkit-appearance:none; appearance:none;
+}
+.fld select {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' fill='none'%3E%3Cpath d='M1 1l4.5 5L10 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
+}
+.fld select:focus, .fld input:focus { border-color:var(--ink); }
+.fld select:disabled { opacity:.4; cursor:not-allowed; }
+[data-theme="dark"] .fld label { color:#4a4a56; }
+[data-theme="dark"] .fld select, [data-theme="dark"] .fld input[type="date"] {
+  background:#1e1e26 !important; border-color:rgba(255,255,255,.09); color:#c9c7c0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' fill='none'%3E%3Cpath d='M1 1l4.5 5L10 1' stroke='%234a4a56' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position:right 12px center; padding-right:34px;
+}
+[data-theme="dark"] .fld input[type="date"] { background-image:none; padding-right:13px; }
+[data-theme="dark"] .fld select:focus, [data-theme="dark"] .fld input:focus { border-color:rgba(200,240,74,.4); }
+[data-theme="dark"] .fld select, [data-theme="dark"] .fld input {
+  color-scheme:dark;
+}
+.fld select, .fld input[type="date"] {
+  color-scheme: light;
+}
+[data-theme="dark"] .fld select, [data-theme="dark"] .fld input[type="date"] {
+  color-scheme: dark;
+}
+
+.btn-load {
+  display:flex; align-items:center; gap:7px; padding:10px 18px;
+  background:var(--ink); color:#fff; border:none; border-radius:10px;
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  cursor:pointer; transition:all .2s; white-space:nowrap; flex-shrink:0;
+}
+.btn-load:hover { background:#1a1a2e; transform:translateY(-1px); }
+.btn-load:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+[data-theme="dark"] .btn-load { background:var(--accent); color:#0a0a0f; }
+[data-theme="dark"] .btn-load:hover { background:#d4f566; }
+
+/* ATTENDANCE PANEL */
+.att-panel { animation:fadeUp .35s ease both; }
+
+.panel-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px; flex-wrap:wrap; gap:10px;
+}
+.panel-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; }
+[data-theme="dark"] .panel-title { color:#c9c7c0; }
+
+.tally { display:flex; gap:8px; flex-wrap:wrap; }
+.tally-chip {
+  display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:100px;
+  font-size:12px; font-weight:700; font-family:'Syne',sans-serif;
+}
+.tally-present { background:rgba(34,197,94,.12); color:#16a34a; border:1px solid rgba(34,197,94,.22); }
+.tally-absent  { background:rgba(239,68,68,.1);  color:#dc2626; border:1px solid rgba(239,68,68,.18); }
+[data-theme="dark"] .tally-present { background:rgba(34,197,94,.1); color:#22c55e; border-color:rgba(34,197,94,.2); }
+[data-theme="dark"] .tally-absent  { background:rgba(239,68,68,.08); color:#f87171; border-color:rgba(239,68,68,.2); }
+
+/* Select-all bar */
+[data-theme="dark"] [data-theme="dark"] .chk-label input { accent-color:var(--accent); }
+
+/* Student list */
+.student-list { display:flex; flex-direction:column; gap:6px; }
+
+.stu-row {
+  display:flex; align-items:center; gap:12px;
+  background:var(--card); border:1.5px solid var(--border); border-radius:13px;
+  padding:11px 16px; cursor:pointer; transition:border-color .2s, background .15s;
+  user-select:none;
+}
+.stu-row:hover { border-color:rgba(10,10,15,.22); }
+.stu-row.absent { background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.22); }
+[data-theme="dark"] .stu-row { background:#181820; border-color:rgba(255,255,255,.07); }
+[data-theme="dark"] .stu-row:hover { border-color:rgba(255,255,255,.14); }
+[data-theme="dark"] .stu-row.absent { background:rgba(239,68,68,.06); border-color:rgba(239,68,68,.2); }
+
+.stu-row input[type="checkbox"] { width:16px; height:16px; accent-color:#22c55e; cursor:pointer; flex-shrink:0; }
+[data-theme="dark"] .stu-row input { accent-color:var(--accent); }
+
+.stu-avt {
+  width:34px; height:34px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:13px; color:var(--ink);
+}
+.stu-info { flex:1; min-width:0; }
+.stu-name { font-size:14px; font-weight:500; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stu-reg  { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; margin-top:1px; }
+[data-theme="dark"] .stu-name { color:#c9c7c0; }
+[data-theme="dark"] .stu-reg  { color:#3a3a48; }
+
+.status-pill {
+  font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px;
+  font-family:'Syne',sans-serif; flex-shrink:0; transition:all .15s;
+}
+.present-pill { background:rgba(34,197,94,.12); color:#16a34a; border:1px solid rgba(34,197,94,.2); }
+.absent-pill  { background:rgba(239,68,68,.1);  color:#dc2626; border:1px solid rgba(239,68,68,.18); }
+[data-theme="dark"] .present-pill { background:rgba(34,197,94,.1); color:#22c55e; border-color:rgba(34,197,94,.2); }
+[data-theme="dark"] .absent-pill  { background:rgba(239,68,68,.08); color:#f87171; border-color:rgba(239,68,68,.2); }
+
+/* Empty / no students */
+.empty-msg { text-align:center; padding:48px 20px; color:var(--muted); font-size:14px; }
+.empty-msg svg { opacity:.3; margin-bottom:12px; display:block; margin-inline:auto; }
+
+/* STICKY SUBMIT BAR */
+.submit-bar {
+  flex-shrink:0; display:none; align-items:center; justify-content:space-between; gap:12px;
+  padding:14px clamp(16px,4vw,36px); background:var(--paper);
+  border-top:1px solid var(--border);
+  backdrop-filter:blur(12px); flex-wrap:wrap;
+}
+.submit-bar.show { display:flex; }
+[data-theme="dark"] .submit-bar { background:#111114; border-color:rgba(255,255,255,.06); }
+
+.submit-summary { font-size:13px; color:var(--muted); }
+.submit-summary b { color:var(--ink); font-weight:700; }
+[data-theme="dark"] .submit-summary b { color:#c9c7c0; }
+
+.btn-submit {
+  display:flex; align-items:center; gap:8px; padding:12px 24px;
+  background:#22c55e; color:#fff; border:none; border-radius:11px;
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+  cursor:pointer; transition:all .2s;
+}
+.btn-submit:hover { background:#16a34a; transform:translateY(-1px); box-shadow:0 6px 20px rgba(34,197,94,.3); }
+.btn-submit:disabled { opacity:.5; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+[data-theme="dark"] .btn-submit { background:var(--accent); color:#0a0a0f; }
+[data-theme="dark"] .btn-submit:hover { background:#d4f566; box-shadow:0 6px 20px rgba(200,240,74,.25); }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(16px);
+  padding:11px 18px; border-radius:12px; font-size:13px; font-weight:500;
+  display:flex; align-items:center; gap:8px; box-shadow:0 8px 32px rgba(0,0,0,.2);
+  z-index:800; opacity:0; pointer-events:none; transition:all .28s cubic-bezier(.22,.68,0,1.2); white-space:nowrap;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.ok  { background:#16a34a; color:#fff; }
+.toast.err { background:#dc2626; color:#fff; }
+[data-theme="dark"] .toast.ok  { background:#22c55e; color:#0a0a0f; }
+
+.spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:_sp .65s linear infinite; vertical-align:middle; }
+[data-theme="dark"] .spinner { border-color:rgba(10,10,15,.3); border-top-color:#0a0a0f; }
+@keyframes _sp { to { transform:rotate(360deg); } }
+{% endblock %}
+
+{% block nav_mark_att %}active{% endblock %}
+
+{% block body %}
+<div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="hamburger" onclick="openSidebar()" aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="topbar-title">Mark Attendance</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="dm-toggle" id="dm-toggle" onclick="DM.toggle()" title="Toggle dark mode">
+          <svg id="dm-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="scroll-area" id="scrollArea">
+      <div class="content">
+        <div class="page-header">
+          <h1>Mark Attendance</h1>
+          <p>Select a branch, semester, subject and date — then mark each student.</p>
+        </div>
+
+        <!-- FILTER CARD -->
+        <div class="filter-card">
+          <div class="filter-label">Step 1 — Select Class &amp; Date</div>
+          <div class="filter-row">
+
+            <div class="fld">
+              <label>Branch</label>
+              <select id="fBranch" onchange="onBranchChange()">
+                <option value="">Select branch…</option>
+                <option value="computer science & engineering">Computer Science &amp; Engineering</option>
+                <option value="electrical engineering">Electrical Engineering</option>
+                <option value="mechanical engineering">Mechanical Engineering</option>
+                <option value="Textile">Textile</option>
+                <option value="civil engineering">Civil Engineering</option>
+              </select>
+            </div>
+
+            <div class="fld">
+              <label>Semester</label>
+              <select id="fSem" onchange="onSemChange()" disabled>
+                <option value="">Select semester…</option>
+              </select>
+            </div>
+
+            <div class="fld">
+              <label>Subject</label>
+              <select id="fSubject" onchange="hidePanel()" disabled>
+                <option value="">Select subject…</option>
+              </select>
+            </div>
+
+            <div class="fld">
+              <label>Date</label>
+              <input type="date" id="fDate" onchange="hidePanel()">
+            </div>
+
+            <button class="btn-load" id="loadBtn" onclick="loadStudents()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+              Load Students
+            </button>
+
+          </div>
+        </div>
+
+        <!-- ATTENDANCE PANEL (shown after loading) -->
+        <div id="attPanel" style="display:none;">
+          <div class="panel-header">
+            <div class="panel-title" id="panelTitle">Students</div>
+            <div class="tally">
+              <span class="tally-chip tally-present" id="tallyPresent">0 Present</span>
+              <span class="tally-chip tally-absent"  id="tallyAbsent">0 Absent</span>
+            </div>
+          </div>
+
+
+
+          <div class="student-list" id="studentList"></div>
+        </div>
+      </div>
+
+      <!-- STICKY SUBMIT BAR (inside scroll area so it sticks to bottom of viewport) -->
+      <div class="submit-bar" id="submitBar">
+        <div class="submit-summary" id="submitSummary"></div>
+        <button class="btn-submit" id="submitBtn" onclick="submitAttendance()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Submit Attendance
+        </button>
+      </div>
+    </div><!-- /scroll-area -->
+  </div><!-- /main -->
+
+<div class="toast" id="toast"></div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+/* subjects_json shape: { "branch": { "semester": [{id, subject_name}, …] } } */
+const ALL_SUBJECTS = {{ subjects_json | safe }};
+
+/* Set today as default date */
+document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+
+/* ── KEY LOOKUP: handles DB casing variations (e.g. "Textile" vs "textile") ── */
+function getBranchKey(branch) {
+  if (!branch) return null;
+  if (ALL_SUBJECTS[branch]) return branch;
+  const lower = branch.toLowerCase();
+  return Object.keys(ALL_SUBJECTS).find(k => k.toLowerCase() === lower) || null;
+}
+
+/* ── CASCADE: Branch → Semester ── */
+function onBranchChange() {
+  const branch  = document.getElementById('fBranch').value;
+  const semSel  = document.getElementById('fSem');
+  const subjSel = document.getElementById('fSubject');
+
+  semSel.innerHTML  = '<option value="">Select semester…</option>';
+  subjSel.innerHTML = '<option value="">Select subject…</option>';
+  semSel.disabled   = !branch;
+  subjSel.disabled  = true;
+  hidePanel();
+
+  const key = getBranchKey(branch);
+  if (!key) return;
+  Object.keys(ALL_SUBJECTS[key]).sort((a,b)=>+a-+b).forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = 'Semester ' + s;
+    semSel.appendChild(o);
+  });
+}
+
+/* ── CASCADE: Semester → Subject ── */
+function onSemChange() {
+  const branch  = document.getElementById('fBranch').value;
+  const sem     = document.getElementById('fSem').value;
+  const subjSel = document.getElementById('fSubject');
+
+  subjSel.innerHTML = '<option value="">Select subject…</option>';
+  subjSel.disabled  = !sem;
+  hidePanel();
+
+  const key  = getBranchKey(branch);
+  const list = key ? ALL_SUBJECTS[key]?.[sem] : null;
+  if (!list) return;
+  list.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.subject_name;
+    subjSel.appendChild(o);
+  });
+}
+
+function hidePanel() {
+  document.getElementById('attPanel').style.display = 'none';
+  document.getElementById('submitBar').classList.remove('show');
+  /* Clear stale student rows so old subject's students never bleed into new subject */
+  document.getElementById('studentList').innerHTML = '';
+  document.getElementById('panelTitle').textContent = 'Students';
+  document.getElementById('tallyPresent').textContent = '0 Present';
+  document.getElementById('tallyAbsent').textContent  = '0 Absent';
+  document.getElementById('submitSummary').innerHTML  = '';
+}
+
+/* ── LOAD STUDENTS ── */
+async function loadStudents() {
+  const subjId  = document.getElementById('fSubject').value;
+  const date    = document.getElementById('fDate').value;
+
+  if (!document.getElementById('fBranch').value)  { toast('Select a branch.', 'err');  return; }
+  if (!document.getElementById('fSem').value)     { toast('Select a semester.', 'err'); return; }
+  if (!subjId)  { toast('Select a subject.', 'err');  return; }
+  if (!date)    { toast('Pick a date.', 'err');        return; }
+
+  const btn = document.getElementById('loadBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Loading…';
+
+  try {
+    // Fetch students enrolled in this specific subject
+    const _t  = Date.now();
+    const res  = await fetch(
+      `/attendance/students?subject_id=${encodeURIComponent(subjId)}&_t=${_t}`,
+      { cache: 'no-store' }
+    );
+    if (res.status === 401 || res.status === 403) { location.href = '/login'; return; }
+    const data = await res.json();
+
+    if (!res.ok || data.status === 'error') { toast(data.msg || 'Failed to load students.', 'err'); return; }
+    renderStudents(data.students || [], document.getElementById('fSubject').options[document.getElementById('fSubject').selectedIndex].text);
+
+  } catch(e) { toast('Connection error.', 'err'); }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg> Load Students';
+}
+
+/* ── RENDER STUDENTS ── */
+function renderStudents(students, subjName) {
+  document.getElementById('panelTitle').textContent = subjName || 'Students';
+  document.getElementById('attPanel').style.display = 'block';
+
+  const list = document.getElementById('studentList');
+
+  if (!students.length) {
+    list.innerHTML = '<div class="empty-msg"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>No students found for this branch &amp; semester.</div>';
+    document.getElementById('submitBar').classList.remove('show');
+    return;
+  }
+
+  list.innerHTML = '';
+  students.forEach(stu => {
+    const row = document.createElement('div');
+    row.className = 'stu-row absent';
+    row.dataset.id = stu.id;
+    row.innerHTML = `
+      <input type="checkbox" onchange="onCheck(this)">
+      <div class="stu-avt">${escH(stu.display_name[0].toUpperCase())}</div>
+      <div class="stu-info">
+        <div class="stu-name">${escH(stu.display_name)}</div>
+        <div class="stu-reg">${escH(stu.username)}</div>
+      </div>
+      <span class="status-pill absent-pill">Absent</span>`;
+    row.addEventListener('click', e => { if (e.target.type !== 'checkbox') row.querySelector('input').click(); });
+    list.appendChild(row);
+  });
+
+  updateTally();
+  document.getElementById('submitBar').classList.add('show');
+}
+
+/* ── CHECKBOX LOGIC ── */
+function onCheck(cb) {
+  const row  = cb.closest('.stu-row');
+  const pill = row.querySelector('.status-pill');
+  if (cb.checked) {
+    row.classList.remove('absent');
+    pill.className = 'status-pill present-pill';
+    pill.textContent = 'Present';
+  } else {
+    row.classList.add('absent');
+    pill.className = 'status-pill absent-pill';
+    pill.textContent = 'Absent';
+  }
+  updateTally();
+}
+
+function updateTally() {
+  const all      = [...document.querySelectorAll('.stu-row input[type="checkbox"]')];
+  const present  = all.filter(c => c.checked).length;
+  const absent   = all.length - present;
+  document.getElementById('tallyPresent').textContent = present + ' Present';
+  document.getElementById('tallyAbsent').textContent  = absent  + ' Absent';
+  document.getElementById('submitSummary').innerHTML  = `<b>${present}</b> present · <b>${absent}</b> absent · <b>${all.length}</b> total`;
+}
+
+/* ── SUBMIT ── */
+async function submitAttendance() {
+  const subjId     = document.getElementById('fSubject').value;
+  const date       = document.getElementById('fDate').value;
+  const presentIds = [...document.querySelectorAll('.stu-row input[type="checkbox"]:checked')]
+                       .map(cb => cb.closest('.stu-row').dataset.id);
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+  try {
+    const fd = new FormData();
+    fd.append('subject_id', subjId);
+    fd.append('date', date);
+    presentIds.forEach(id => fd.append('student_ids', id));
+
+    const res  = await fetch('/attendance/mark', { method:'POST', body:fd });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.status !== 'error') {
+      toast('Attendance submitted!', 'ok');
+      hidePanel();
+      /* Reset filters */
+      document.getElementById('fBranch').value  = '';
+      document.getElementById('fSem').innerHTML = '<option value="">Select semester…</option>';
+      document.getElementById('fSem').disabled  = true;
+      document.getElementById('fSubject').innerHTML = '<option value="">Select subject…</option>';
+      document.getElementById('fSubject').disabled  = true;
+    } else {
+      toast(data.msg || 'Something went wrong.', 'err');
+    }
+  } catch(e) { toast('Connection error.', 'err'); }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Submit Attendance';
+}
+
+/* ── HELPERS ── */
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  const ic = type === 'ok'
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  el.innerHTML = ic + ' ' + msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = 'toast', 3400);
+}
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}
