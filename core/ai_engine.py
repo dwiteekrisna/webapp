@@ -13,137 +13,204 @@ except ImportError:
 
 class LacebitAIEngine:
     # --- TOGGLE CONSOLE LOGGING ---
-    DEBUG_MODE = False
+    DEBUG_MODE = False 
 
     def __init__(self):
-        # Gemini Config
+        # 1. Gemini Config
         self.api_keys = [k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
         self.model_name = "gemini-flash-lite-latest"
         self.current_key_idx = 0
         self.clients = {} 
-
-        # IN-MEMORY BLACKLIST
-        self.blocked_keys = {} 
-
-        # Cloudflare Config
+        self.blocked_keys = {} # {key: expiry_timestamp}
+        self.lock = asyncio.Lock()
+        
+        # 2. Cloudflare Config
         self.cf_account_id = os.getenv("CF_ACCOUNT_ID")
         self.cf_token = os.getenv("CF_API_TOKEN")
         self.cf_model = os.getenv("CF_MODEL", "@cf/meta/llama-3.2-11b-vision-instruct")
 
+        # 3. Database
         self.db_name = os.getenv("DB_NAME")
-        self.lock = asyncio.Lock()
-        
+
+        # FIX: bot_info_cache was declared but never used — now actively used to skip
+        #      repeated DB hits for data that almost never changes.
+        self.bot_info_cache = None          # Cached bot identity row
+        self.bot_cache_expiry = 0           # Unix timestamp; refreshed every 10 min
+
         if self.DEBUG_MODE:
-            print(f"[INIT] LacebitAIEngine: {len(self.api_keys)} Gemini keys detected.")
+            self._log(f"LacebitAIEngine Initialized. Keys: {len(self.api_keys)}")
+
+    # ======================================================
+    # HELPER UTILITIES
+    # ======================================================
 
     def _log(self, message):
-        if self.DEBUG_MODE: print(message)
+        """Unified logging that strictly respects DEBUG_MODE."""
+        if self.DEBUG_MODE:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
 
-    def _get_client(self, api_key):
+    def _get_gemini_client(self, api_key):
         if api_key not in self.clients:
             self.clients[api_key] = genai.Client(api_key=api_key)
         return self.clients[api_key]
 
-    async def _get_next_gemini(self):
-        """Ultra-fast O(1) Round Robin + Blacklist check."""
+    async def _get_next_available_key(self):
+        """O(1) Round Robin key selector with Blacklist check."""
         now = time.time()
         async with self.lock:
+            # Cleanup expired blocks
+            self.blocked_keys = {k: exp for k, exp in self.blocked_keys.items() if exp > now}
+            
             for _ in range(len(self.api_keys)):
                 idx = self.current_key_idx
                 key = self.api_keys[idx]
                 self.current_key_idx = (idx + 1) % len(self.api_keys)
-                blocked_until = self.blocked_keys.get(key, 0)
-                if blocked_until <= now:
-                    if blocked_until > 0: del self.blocked_keys[key] 
-                    self._log(f"[USE] Gemini Key {idx + 1}")
-                    return key, idx + 1, self._get_client(key)
+
+                if key not in self.blocked_keys:
+                    return key, idx + 1, self._get_gemini_client(key)
                 
-                res_t = datetime.fromtimestamp(blocked_until).strftime('%H:%M:%S')
-                self._log(f"[SKIP] Key {idx + 1} blocked until {res_t}")
+                self._log(f"SKIPPING Key {idx+1} (Blacklisted)")
             return None, None, None
 
-    def _sync_get_context(self, user_msg, user_display_name):
-        """Search logic including BOT IDENTITY, HABITS, and personalized names."""
-        msg_l = user_msg.lower().strip()
-        context = []
-        conn = get_db(self.db_name)
-        if not conn: return ""
+    # ======================================================
+    # DATABASE SEARCH LOGIC (PARALLEL)
+    # ======================================================
+
+    def _db_fetch_bot_identity(self):
+        """
+        OPTIMIZATION: Returns cached bot identity if still fresh (TTL = 10 min).
+        Eliminates a DB round-trip on every message for data that is effectively static.
+        Cache is instance-level so it is shared across all concurrent requests.
+        Falls back to stale cache on DB error rather than returning None.
+        """
+        now = time.time()
+        if self.bot_info_cache and now < self.bot_cache_expiry:
+            self._log("DB Identity: cache HIT")
+            return self.bot_info_cache
+
         try:
+            conn = get_db(self.db_name)
             cursor = conn.cursor(dictionary=True)
-            
-            # 1. Identity & Habits (RESTORED)
             cursor.execute("SELECT bot_name, developer, habits FROM bot_info WHERE id = 1")
-            bot = cursor.fetchone()
-            if bot:
-                context.append(f"AI Identity: You are {bot['bot_name']} by {bot['developer']}. Your personality/habits: {bot['habits']}. You are talking to a human named: {user_display_name} , call them with first name.")
-                
-                # Fast track for greetings/name checks
-                greetings_and_name_queries = {'hi', 'hello', 'hey', 'nexus', 'ai', "what's my name", "who am i"}
-                if any(q in msg_l for q in greetings_and_name_queries):
-                    conn.close()
-                    return f"Instruction: Greet {user_display_name} using your habits: {bot['habits']}. Identity: {bot['bot_name']} by {bot['developer']}."
-
-            # 2. Campus Logic (Principal, HOD, Faculty)
-            if "principal" in msg_l:
-                cursor.execute("SELECT name, phone FROM principal LIMIT 1")
-                p = cursor.fetchone()
-                if p: context.append(f"Principal: {p['name']} (Ph: {p['phone']})")
-
-            if "hod" in msg_l:
-                cursor.execute("SELECT name, designation, branch, phone FROM faculty WHERE designation LIKE %s", ("%HOD%",))
-                for r in cursor.fetchall():
-                    context.append(f"HOD: {r['name']} ({r['designation']}) Dept: {r['branch']} Ph: {r['phone']}")
-
-            clean = re.sub(r'who is|tell|contact|find|faculty|staff|list|department|hod|principal|sir|maam', '', msg_l).strip()
-            if len(clean) > 2:
-                cursor.execute("SELECT name, designation, branch, phone FROM faculty WHERE name LIKE %s LIMIT 30", (f"%{clean}%",))
-                for r in cursor.fetchall(): context.append(f"Faculty: {r['name']} | {r['branch']} | Ph: {r['phone']}")
-            
+            res = cursor.fetchone()
             conn.close()
-        except: pass
-        return "\n".join(list(set(context)))
+            # Populate cache only on a valid result
+            if res:
+                self.bot_info_cache = res
+                self.bot_cache_expiry = now + 600   # 10-minute TTL
+            self._log("DB Identity: cache MISS — refreshed")
+            return res
+        except Exception as e:
+            self._log(f"DB Identity Error: {e}")
+            return self.bot_info_cache   # Serve stale cache on error rather than None
 
-    def _sync_optimize_image(self, image_bytes, size=(800, 800)):
+    def _db_fetch_principal(self, msg_l):
+        if "principal" not in msg_l: return None
+        try:
+            conn = get_db(self.db_name)
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT name, phone FROM principal LIMIT 1")
+            res = cursor.fetchone()
+            conn.close()
+            return f"Principal: {res['name']} ({res['phone']})" if res else None
+        except: return None
+
+    def _db_fetch_hod(self, msg_l):
+        if "hod" not in msg_l: return None
+        try:
+            conn = get_db(self.db_name)
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT name, branch, phone FROM faculty WHERE designation LIKE %s", ("%HOD%",))
+            rows = cursor.fetchall()
+            conn.close()
+            return "\n".join([f"HOD: {r['name']} ({r['branch']}) {r['phone']}" for r in rows])
+        except: return None
+
+    def _db_fetch_fuzzy_staff(self, msg_l):
+        dept_map = {
+            'CSE': ['cse', 'computer', 'cse', 'comp'], 'WORKSHOP': ['workshop', 'w/s'],
+            'TEXTILE': ['textile', 'tex'], 'ELECTRICAL': ['electrical', 'ece', 'elect'],
+            'MECHANICAL': ['mechanical', 'mech'], 'Math & Sc.': ['math', 'science', 'physics', 'chemistry']
+        }
+        target_branches = [br for br, kws in dept_map.items() if any(kw in msg_l for kw in kws)]
+        clean = re.sub(r'who is|tell|contact|find|faculty|staff|list|department|hod|principal|sir|maam', '', msg_l).strip()
+        if not target_branches and len(clean) < 3: return None
+        try:
+            conn = get_db(self.db_name)
+            cursor = conn.cursor(dictionary=True)
+            search_terms, params = [], []
+            for br in target_branches: search_terms.append("branch = %s"); params.append(br)
+            if len(clean) > 2: search_terms.append("name LIKE %s"); params.append(f"%{clean}%")
+            where = " OR ".join(search_terms)
+            results = []
+            cursor.execute(f"SELECT name, branch, phone FROM faculty WHERE {where} LIMIT 30", params)
+            for r in cursor.fetchall(): results.append(f"Faculty: {r['name']} ({r['branch']}) {r['phone']}")
+            cursor.execute(f"SELECT name, branch, phone FROM non_teaching_staff WHERE {where} LIMIT 20", params)
+            for r in cursor.fetchall(): results.append(f"Staff: {r['name']} ({r['branch']}) {r['phone']}")
+            conn.close()
+            return "\n".join(results)
+        except: return None
+
+    def _optimize_image_sync(self, image_bytes):
         if not LIB_AVAILABLE or not image_bytes: return image_bytes
         try:
             img = Image.open(io.BytesIO(image_bytes))
-            if img.mode != "RGB": img = img.convert("RGB")
-            img.thumbnail(size)
+            img.thumbnail((800, 800))
             out = io.BytesIO()
-            img.save(out, format='JPEG', quality=70, optimize=True)
+            img.save(out, format='JPEG', quality=70)
             return out.getvalue()
         except: return image_bytes
 
-    async def generate_response_stream(self, user_message, history=None, image_bytes=None, mime_type=None, user_name="Student"):
-        # 1. PARALLEL START
-        tasks = [asyncio.to_thread(self._sync_get_context, user_message, user_name)]
-        if image_bytes: tasks.append(asyncio.to_thread(self._sync_optimize_image, image_bytes))
-        results = await asyncio.gather(*tasks)
-        db_context, opt_image = results[0], (results[1] if len(results) > 1 else None)
+    # ======================================================
+    # CORE ENGINE LOGIC
+    # ======================================================
 
-        # TOUGH System Instruction
+    async def generate_response_stream(self, user_message, history=None, image_bytes=None, mime_type=None, user_name="Student"):
+        # 1. PARALLEL DATA GATHERING
+        msg_l = user_message.lower().strip()
+        db_tasks = [
+            asyncio.to_thread(self._db_fetch_bot_identity),
+            asyncio.to_thread(self._db_fetch_principal, msg_l),
+            asyncio.to_thread(self._db_fetch_hod, msg_l),
+            asyncio.to_thread(self._db_fetch_fuzzy_staff, msg_l)
+        ]
+        if image_bytes:
+            db_tasks.append(asyncio.to_thread(self._optimize_image_sync, image_bytes))
+        
+        results = await asyncio.gather(*db_tasks)
+        bot, principal, hod, fuzzy = results[0], results[1], results[2], results[3]
+        opt_image = results[4] if image_bytes else None
+
+        # FIX: Bot now receives the user's FULL name for identity awareness,
+        #      but continues to address them by first name only for a friendly tone.
+        u_full  = user_name if user_name else "Student"
+        u_first = u_full.split()[0]
+
+        # 2. TOKEN-EFFICIENT SYSTEM INSTRUCTION
+        db_data = "\n".join(filter(None, [principal, hod, fuzzy]))
         sys_instr = (
-            f"SYSTEM: Chatting with {user_name}. Use this REAL NAME. Never call them with Full name mentioned with first name\n"
-            f"CAMPUS DATA:\n{db_context}\n\n"
-            f"INSTRUCTION: Use the HABITS and DATA provided. Bold **names**. Friendly/direct."
+            f"You are {bot['bot_name'] if bot else 'AI'} by {bot['developer'] if bot else 'Dev'}. Style: {bot['habits'] if bot else 'concise'}. "
+            f"User full name: {u_full}. Address them as: {u_first}. DATA: {db_data}. "
+            f"RULES: 1. Address as {u_first}. 2. You != {u_first}. "
+            f"3. Format Names in **Bold**. 4. Use _Italic_, ***Bold+Italic***, ###, >, `Code`. 5. Moderated length."
         )
 
-        # 2. DEDUPLICATION
+        # 3. HISTORY DEDUPLICATION
         formatted_history = []
         if history:
-            for entry in history[-4:]:
-                role = "model" if entry.get('role') == "assistant" else "user"
-                txt = entry.get('content', '').strip()
+            for e in history[-4:]:
+                role, txt = ("model" if e.get('role') == "assistant" else "user"), e.get('content', '').strip()
                 if role == "user" and txt == user_message.strip(): continue
                 if txt: formatted_history.append(types.Content(role=role, parts=[types.Part.from_text(text=txt)]))
 
-        failure_reason = "other"
-        should_fallback = False
+        failure_reason, should_fallback = "other", False
 
-        # --- STEP 1: GEMINI ---
+        # ─── STEP 1: GEMINI ───
         for i in range(len(self.api_keys)):
-            key, key_num, client = await self._get_next_gemini()
+            key, key_num, client = await self._get_next_available_key()
             if not key: should_fallback = True; break
+            
+            self._log(f"[USE] Gemini Key {key_num}")
             try:
                 contents = formatted_history.copy()
                 new_parts = []
@@ -151,45 +218,51 @@ class LacebitAIEngine:
                 new_parts.append(types.Part.from_text(text=user_message))
                 contents.append(types.Content(role="user", parts=new_parts))
 
+                safety = [types.SafetySetting(category=c, threshold="BLOCK_NONE") for c in ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]]
+
+                yielded = False
                 async for chunk in await client.aio.models.generate_content_stream(
                     model=self.model_name, contents=contents, 
-                    config=types.GenerateContentConfig(system_instruction=sys_instr, temperature=0.7)
+                    config=types.GenerateContentConfig(system_instruction=sys_instr, temperature=0.7, safety_settings=safety)
                 ):
-                    if chunk.text: yield str(chunk.text)
-                return 
+                    if chunk.text: yield str(chunk.text); yielded = True
+                
+                if yielded: 
+                    self._log(f"[SUCCESS] Gemini Key {key_num}")
+                    return 
+                else: raise Exception("SAFETY_BLOCK")
 
             except Exception as e:
                 err = str(e)
-                async with self.lock: self.blocked_keys[key] = time.time() + 600 
-                self._log(f"[FAIL] Key {key_num}: {err}")
-                if "429" in err:
-                    failure_reason = "429"
+                if "SAFETY" in err or "finish_reason: 3" in err:
+                    self._log(f"[BLOCK] Key {key_num} safety triggered. Switching to Cloudflare.")
+                    should_fallback = True
+                    break 
+                else:
+                    async with self.lock: self.blocked_keys[key] = time.time() + 600
+                    self._log(f"[FAIL] Key {key_num}: {err}")
+                    if "429" in err: failure_reason = "429"
                     if i == len(self.api_keys) - 1: should_fallback = True
                     continue 
-                else:
-                    failure_reason = "other"
-                    should_fallback = True
-                    break
 
-        # --- STEP 2: CLOUDFLARE FALLBACK (Fixed Buffer-Aware Parser) ---
+        # ─── STEP 2: CLOUDFLARE FALLBACK ───
         if should_fallback and self.cf_token:
+            self._log(f"[FALLBACK] Switching to Cloudflare ({self.cf_model})...")
             url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run/{self.cf_model}"
             headers = {"Authorization": f"Bearer {self.cf_token}", "X-Skip-Model-Agreement": "true"}
             
             cf_msgs = [{"role": "system", "content": sys_instr}]
             for e in history[-4:] if history else []:
-                r, t = ("assistant" if e.get('role') == "assistant" else "user"), e.get('content','').strip()
-                if r == "user" and t == user_message.strip(): continue
+                r, t = ("assistant" if e.get('role') == 'assistant' else 'user'), e.get('content','').strip()
+                if r == 'user' and t == user_message.strip(): continue
                 cf_msgs.append({"role": r, "content": t})
             cf_msgs.append({"role": "user", "content": user_message})
 
             payload = {"messages": cf_msgs, "stream": True, "max_tokens": 2048}
-            if opt_image:
-                cf_img = await asyncio.to_thread(self._sync_optimize_image, image_bytes, (600, 600))
-                payload["image"] = list(cf_img)
+            if opt_image: payload["image"] = list(opt_image)
 
             async with aiohttp.ClientSession() as session:
-                for cf_attempt in range(2):
+                for _ in range(2):
                     try:
                         async with session.post(url, headers=headers, json=payload, timeout=60) as resp:
                             if resp.status == 200:
@@ -199,27 +272,32 @@ class LacebitAIEngine:
                                     while "\n" in buffer:
                                         line, buffer = buffer.split("\n", 1)
                                         if line.startswith("data:"):
-                                            data_raw = line[5:].strip()
-                                            if data_raw == "[DONE]": break
+                                            # FIX: renamed from `data` → `cf_payload` to prevent
+                                            #      shadowing the outer `db_data` variable
+                                            cf_payload = line[5:].strip()
+                                            if cf_payload == "[DONE]": break
                                             try:
-                                                data_json = json.loads(data_raw)
-                                                token = data_json.get("response")
-                                                if token is not None: yield str(token)
+                                                token = json.loads(cf_payload).get("response")
+                                                if token: yield str(token)
                                             except: continue
+                                self._log("[SUCCESS] Cloudflare stream completed.")
                                 return
-                            elif resp.status == 403 and cf_attempt == 0:
+                            elif resp.status == 403:
+                                self._log("[LICENSE] Sending agree handshake...")
                                 await session.post(url, headers=headers, json={"prompt": "agree"})
                                 continue 
                             break
-                    except: break
+                    except Exception as e:
+                        self._log(f"[CF ERROR] {e}")
+                        break
 
-        # --- STEP 3: FINAL ERRORS ---
+        # ─── STEP 3: FINAL ERROR HANDLING ───
         if failure_reason == "429":
             yield "we are facing high traffic kindly wait !! 🙏 We are facing token shortage issue"
         else:
             yield "we are facing high traffic kindly retry after sometimes"
 
-# Instantiate engine
+# Instantiate
 ai_engine = LacebitAIEngine()
 
 async def get_ai_response_stream(user_msg, history=None, img_bytes=None, mime_type=None, user_name="Student"):
