@@ -55,9 +55,9 @@ html, body { height:100%; }
 .btn-insta:active { transform:scale(.93); }
 
 /* ── CONTENT ── */
-.content { padding:clamp(16px,4vw,36px); flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.content { padding:clamp(16px,4vw,36px); padding-bottom:max(120px, calc(80px + env(safe-area-inset-bottom, 0px))); flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 
-/* Stats row — matches attendance overview-row layout */
+/* Stats row */
 .stats-row {
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
@@ -111,14 +111,14 @@ html, body { height:100%; }
 /* Notices grid */
 .notices-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; animation:fadeUp .5s ease .15s both; }
 
-/* Notice cards */
+/* Notice cards — overflow:visible so card-attached dropdown is not clipped */
 .notice-card {
   background:rgba(255,255,255,.6); backdrop-filter:blur(16px) saturate(1.6); -webkit-backdrop-filter:blur(16px) saturate(1.6);
   border:1px solid rgba(255,255,255,.85); border-radius:18px; padding:20px;
-  transition:transform .2s,box-shadow .2s; cursor:default; position:relative; overflow:hidden;
+  transition:transform .2s,box-shadow .2s; cursor:default; position:relative; overflow:visible;
   box-shadow:0 2px 8px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9);
 }
-.notice-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:0; transition:opacity .2s; }
+.notice-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:0; transition:opacity .2s; border-radius:18px 18px 0 0; }
 .notice-card:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(0,0,0,.1); }
 .notice-card:hover::before { opacity:1; }
 [data-theme="dark"] .notice-card { background:#181820; border-color:rgba(255,255,255,.06); box-shadow:0 2px 12px rgba(0,0,0,.25); }
@@ -143,6 +143,15 @@ html, body { height:100%; }
 .notice-attachment a { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); padding:6px 12px; border:1px solid var(--border); border-radius:8px; text-decoration:none; transition:all .2s; }
 .notice-attachment a:hover { border-color:var(--ink); color:var(--ink); }
 
+/* PDF Preview */
+.pdf-preview-wrap { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--cream); }
+[data-theme="dark"] .pdf-preview-wrap { background:#131316; border-color:rgba(255,255,255,.08); }
+.pdf-iframe { width:100%; height:380px; display:block; border:none; }
+.pdf-download-btn { display:flex; align-items:center; gap:7px; padding:9px 14px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); text-decoration:none; transition:all .2s; background:transparent; }
+.pdf-download-btn:hover { color:var(--ink); background:rgba(0,0,0,.03); }
+[data-theme="dark"] .pdf-download-btn { border-color:rgba(255,255,255,.07); }
+[data-theme="dark"] .pdf-download-btn:hover { background:rgba(255,255,255,.04); color:#c9c7c0; }
+
 /* Lightbox */
 .lightbox { position:fixed; inset:0; z-index:1000; background:rgba(255,255,255,.15); backdrop-filter:blur(28px) saturate(1.4); -webkit-backdrop-filter:blur(28px) saturate(1.4); display:flex; align-items:center; justify-content:center; padding:16px; opacity:0; pointer-events:none; transition:opacity .25s; }
 .lightbox.open { opacity:1; pointer-events:all; }
@@ -152,11 +161,11 @@ html, body { height:100%; }
 .lightbox-close:hover { background:rgba(0,0,0,.2); }
 .lightbox-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(0,0,0,.4); pointer-events:none; }
 
-/* 3-dot admin menu */
+/* 3-dot admin menu — card-attached (position:absolute, not fixed) */
 .notice-actions { position:relative; margin-left:auto; }
 .dot-menu-btn { width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:none; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
 .dot-menu-btn:hover { background:var(--cream); color:var(--ink); }
-.dot-menu { position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:12px; padding:6px; box-shadow:0 12px 40px rgba(0,0,0,.12); min-width:140px; z-index:50; display:none; animation:popIn .15s cubic-bezier(.22,.68,0,1.2); }
+.dot-menu { position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:12px; padding:6px; box-shadow:0 12px 40px rgba(0,0,0,.12); min-width:140px; z-index:200; display:none; animation:popIn .15s cubic-bezier(.22,.68,0,1.2); }
 .dot-menu.open { display:block; }
 .dot-menu-item { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; color:var(--ink); background:none; border:none; width:100%; text-align:left; transition:background .15s; }
 .dot-menu-item:hover { background:var(--cream); }
@@ -176,6 +185,97 @@ html, body { height:100%; }
 .empty-state p { font-size:14px; }
 [data-theme="dark"] .empty-state { color:#3a3a42; }
 [data-theme="dark"] .empty-state svg { stroke:#2a2a32; }
+
+/* ── AI SUMMARY BUTTONS ── */
+.ai-summary-actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+
+.btn-ai-view {
+  background:rgba(74,240,200,.1); color:var(--accent2);
+  border:1px solid rgba(74,240,200,.3);
+  padding:6px 12px; border-radius:8px;
+  font-size:12px; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; gap:6px; transition:all .2s;
+}
+.btn-ai-view:hover { background:rgba(74,240,200,.2); border-color:rgba(74,240,200,.6); }
+[data-theme="dark"] .btn-ai-view { background:rgba(53,196,160,.08); border-color:rgba(53,196,160,.25); color:#35c4a0; }
+
+.btn-ai-gen {
+  background:var(--ink); color:var(--accent);
+  border:1px solid var(--accent);
+  padding:6px 12px; border-radius:8px;
+  font-size:12px; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; gap:6px; transition:all .2s;
+}
+.btn-ai-gen:hover { background:var(--accent); color:var(--ink); }
+.btn-ai-gen:disabled { opacity:.5; cursor:not-allowed; }
+[data-theme="dark"] .btn-ai-gen { background:#0d0d10; color:#a8cc30; border-color:#a8cc30; }
+[data-theme="dark"] .btn-ai-gen:hover { background:#a8cc30; color:#0d0d10; }
+.btn-ai-gen.locked { border-color:var(--muted); color:var(--muted); cursor:wait; opacity:.6; }
+[data-theme="dark"] .btn-ai-gen.locked { border-color:#3a3a42; color:#3a3a42; }
+
+.spin { animation:rotation 2s infinite linear; display:inline-block; }
+@keyframes rotation { from{transform:rotate(0deg);} to{transform:rotate(359deg);} }
+
+/* ── TOAST ── */
+.ai-toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(10px);
+  background:var(--ink); color:var(--paper);
+  padding:10px 18px; border-radius:12px; font-size:13px; font-weight:500;
+  box-shadow:0 8px 30px rgba(0,0,0,.2); z-index:900;
+  opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+  white-space:nowrap; max-width:calc(100vw - 32px);
+}
+.ai-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+[data-theme="dark"] .ai-toast { background:#e8e6df; color:#111114; }
+
+/* ── AI SUMMARY VIEW MODAL ── */
+.ai-modal-overlay {
+  position:fixed; inset:0; z-index:950;
+  background:rgba(0,0,0,.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .25s, visibility 0s linear .25s;
+}
+.ai-modal-overlay.open { opacity:1; visibility:visible; pointer-events:all; transition:opacity .25s, visibility 0s linear 0s; }
+.ai-modal-box {
+  background:var(--card); border:1px solid var(--border); border-radius:20px;
+  padding:24px; max-width:480px; width:100%;
+  box-shadow:0 30px 80px rgba(0,0,0,.15);
+  transform:scale(.94); transition:transform .28s cubic-bezier(.22,.68,0,1.2);
+  max-height:80vh; display:flex; flex-direction:column;
+}
+.ai-modal-overlay.open .ai-modal-box { transform:scale(1); }
+[data-theme="dark"] .ai-modal-box { background:#1c1c21; border-color:rgba(255,255,255,.07); }
+.ai-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-shrink:0; }
+.ai-modal-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; display:flex; align-items:center; gap:7px; color:var(--accent2); }
+[data-theme="dark"] .ai-modal-title { color:#35c4a0; }
+.ai-modal-close { width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:none; color:var(--muted); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.ai-modal-close:hover { background:var(--cream); color:var(--ink); }
+[data-theme="dark"] .ai-modal-close:hover { background:#26262e; }
+.summary-content { line-height:1.65; color:var(--ink); white-space:pre-wrap; font-size:14px; overflow-y:auto; flex:1; }
+[data-theme="dark"] .summary-content { color:#9a9890; }
+
+/* ── TECH DIFFICULTY MODAL ── */
+.ai-error-overlay {
+  position:fixed; inset:0; z-index:960;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .25s, visibility 0s linear .25s;
+}
+.ai-error-overlay.open { opacity:1; visibility:visible; pointer-events:all; transition:opacity .25s, visibility 0s linear 0s; }
+.ai-error-modal { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:28px 28px 24px; max-width:400px; width:100%; box-shadow:0 30px 80px rgba(0,0,0,.18); transform:scale(.94); transition:transform .28s cubic-bezier(.22,.68,0,1.2); }
+.ai-error-overlay.open .ai-error-modal { transform:scale(1); }
+[data-theme="dark"] .ai-error-modal { background:#1c1c21; border-color:rgba(255,255,255,.07); }
+.ai-error-icon { width:44px; height:44px; border-radius:12px; background:rgba(229,62,62,.1); border:1px solid rgba(229,62,62,.2); display:flex; align-items:center; justify-content:center; margin-bottom:16px; color:#e53e3e; }
+.ai-error-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:8px; }
+.ai-error-msg { font-size:14px; line-height:1.6; color:var(--ink); margin-bottom:12px; }
+[data-theme="dark"] .ai-error-msg { color:#9a9890; }
+.ai-error-detail { font-size:11px; color:var(--muted); padding:8px 12px; background:var(--cream); border-radius:8px; margin-bottom:20px; font-family:monospace; }
+[data-theme="dark"] .ai-error-detail { background:#131316; color:#4a4a52; }
+.ai-error-ok { width:100%; padding:11px; border-radius:11px; border:none; cursor:pointer; background:var(--ink); color:var(--paper); font-size:14px; font-weight:600; font-family:'Syne',sans-serif; transition:opacity .2s; }
+.ai-error-ok:hover { opacity:.8; }
+[data-theme="dark"] .ai-error-ok { background:#e8e6df; color:#111114; }
 {% endblock %}
 
 {% block nav_home %}active{% endblock %}
@@ -280,11 +380,44 @@ html, body { height:100%; }
           <div class="notice-title">{{ n.title }}</div>
           <div class="notice-body">{{ n.content }}</div>
 
+          {# ── AI SUMMARY ACTIONS ── #}
+          <div class="ai-summary-actions" id="ai-wrap-{{ n.id }}">
+            {% if n.has_summary %}
+            <button class="btn-ai-view" data-summary="{{ n.ai_summary|e }}" onclick="showSummaryModal(this.dataset.summary)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View AI Summary
+            </button>
+            {% elif user and user.is_admin and n.is_locked %}
+            <button class="btn-ai-gen locked" disabled data-poll-id="{{ n.id }}">
+              <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              AI Processing...
+            </button>
+            {% elif user and user.is_admin and n.can_summarize %}
+            <button type="button" class="btn-ai-gen" id="gen-btn-{{ n.id }}" onclick="triggerAISummary(event, {{ n.id }}, this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              AI Summary
+            </button>
+            {% endif %}
+          </div>
+
           {% if n.file_path %}
           <div class="notice-attachment">
             {% if n.file_type in ['jpg','jpeg','png','gif','webp'] %}
               <div class="att-img-wrap" onclick="openLightbox('{{ n.file_path|e }}')">
                 <img src="{{ n.file_path }}" alt="Attachment" loading="lazy">
+              </div>
+            {% elif n.file_type == 'pdf' %}
+              <div class="pdf-preview-wrap">
+                <iframe
+                  class="pdf-iframe"
+                  src="https://docs.google.com/viewer?url={{ request.host_url.rstrip('/') }}{{ n.file_path|e }}&embedded=true"
+                  loading="lazy"
+                  allowfullscreen>
+                </iframe>
+                <a href="{{ n.file_path }}" download class="pdf-download-btn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download PDF
+                </a>
               </div>
             {% else %}
               <a href="{{ n.file_path }}" target="_blank" rel="noopener">
@@ -306,7 +439,37 @@ html, body { height:100%; }
       </div>
       {% endif %}
     </div>
+</div>
+
+<!-- TOAST -->
+<div class="ai-toast" id="aiToast"></div>
+
+<!-- AI SUMMARY VIEW MODAL -->
+<div class="ai-modal-overlay" id="aiViewModal" onclick="if(event.target===this)closeAiView()">
+  <div class="ai-modal-box">
+    <div class="ai-modal-header">
+      <div class="ai-modal-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        AI Summary
+      </div>
+      <button class="ai-modal-close" onclick="closeAiView()">✕</button>
+    </div>
+    <div class="summary-content" id="aiSummaryText"></div>
   </div>
+</div>
+
+<!-- AI TECHNICAL DIFFICULTY MODAL -->
+<div class="ai-error-overlay" id="aiErrorOverlay" onclick="if(event.target===this)closeAiError()">
+  <div class="ai-error-modal">
+    <div class="ai-error-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="ai-error-title">Technical Difficulty</div>
+    <div class="ai-error-msg">We are currently facing some technical difficulty. Kindly retry the AI Summary button after some time — your post was successfully posted.</div>
+    <div class="ai-error-detail" id="aiErrorDetail"></div>
+    <button class="ai-error-ok" onclick="closeAiError()">OK, Got it</button>
+  </div>
+</div>
 
 <!-- POST NOTICE MODAL -->
 <div class="modal-overlay" id="postModal">
@@ -393,8 +556,13 @@ const tc=document.getElementById('today-count'); if(tc) tc.textContent=todayCoun
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
-/* ── 3-dot dropdown ── */
-function toggleMenu(btn){ const menu=btn.nextElementSibling; const isOpen=menu.classList.contains('open'); closeAllMenus(); if(!isOpen) menu.classList.add('open'); }
+/* ── 3-dot dropdown (card-attached, simple toggle) ── */
+function toggleMenu(btn){
+  const menu = btn.nextElementSibling;
+  const isOpen = menu.classList.contains('open');
+  closeAllMenus();
+  if(!isOpen) menu.classList.add('open');
+}
 function closeAllMenus(){ document.querySelectorAll('.dot-menu.open').forEach(m=>m.classList.remove('open')); }
 document.addEventListener('click',e=>{ if(!e.target.closest('.notice-actions')) closeAllMenus(); });
 
@@ -446,6 +614,8 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(document.getElementById('lightbox').classList.contains('open')){ closeLightbox(); return; }
     document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    closeAiView();
+    closeAiError();
   }
 });
 
@@ -457,5 +627,131 @@ function previewFile(input, previewId){
   preview.textContent='📎 '+file.name+' ('+(file.size/1024).toFixed(1)+' KB)';
   preview.classList.add('show');
 }
+
+/* ════════════════════════════════════
+   AI SUMMARY FEATURE
+════════════════════════════════════ */
+
+/* Toast */
+let _toastTimer = null;
+function showAiToast(msg, duration=3500){
+  const t = document.getElementById('aiToast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), duration);
+}
+
+/* View summary modal — uses data attribute to avoid JS string escaping issues */
+function showSummaryModal(text){
+  document.getElementById('aiSummaryText').textContent = text;
+  document.getElementById('aiViewModal').classList.add('open');
+}
+function closeAiView(){
+  document.getElementById('aiViewModal').classList.remove('open');
+}
+
+/* Technical difficulty modal */
+function showErrorPopup(data){
+  const code = data.error_code || '503';
+  const reason = data.reason || 'Unknown';
+  document.getElementById('aiErrorDetail').textContent = `Error ${code}: ${reason}`;
+  document.getElementById('aiErrorOverlay').classList.add('open');
+}
+function closeAiError(){
+  document.getElementById('aiErrorOverlay').classList.remove('open');
+}
+
+/* Trigger AI generation (admin only) */
+async function triggerAISummary(event, noticeId, btn){
+  // 1. Prevent instant fetch aborts
+  if(event) { event.preventDefault(); event.stopPropagation(); }
+
+  // 2. Button safety check (ID fallback matches perfectly)
+  if(!btn) btn = document.getElementById(`gen-btn-${noticeId}`);
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin .7s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Generating...';
+
+  try {
+    const res = await fetch(`/ai-summary/${noticeId}`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+    });
+
+    // 3. Read raw text first to prevent 1ms crash if API returns HTML error instead of JSON
+    const rawText = await res.text();
+    let data;
+    try {
+        data = JSON.parse(rawText);
+    } catch(e) {
+        console.error("Server API returned non-JSON format:", rawText);
+        throw new Error("Invalid API Response (Not JSON)");
+    }
+
+    if(res.status === 429){
+      const wait = data.retry_after || 60;
+      showAiToast(`Please wait ${wait}s before requesting again.`);
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      return;
+    }
+
+    if(data.status === 'success'){
+      showAiToast('Summary generated ✓ Refreshing...');
+      setTimeout(()=>window.location.reload(), 1200);
+    } else {
+      showErrorPopup(data);
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+    }
+  } catch(err){
+    console.error("AI Fetch Network Error:", err);
+    showAiToast('Network error. Check console for details.');
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
+}
+
+/* Spin keyframe */
+const _aiStyle = document.createElement('style');
+_aiStyle.textContent = '@keyframes spin { to { transform:rotate(360deg); } }';
+document.head.appendChild(_aiStyle);
+
+/* ── AUTO-POLLING FOR BACKGROUND AI TASKS ── */
+async function startPolling(noticeId) {
+  const pollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/check-summary/${noticeId}`);
+      const data = await res.json();
+      if(data.has_summary){
+        clearInterval(pollInterval);
+        const wrap = document.getElementById(`ai-wrap-${noticeId}`);
+        if(wrap){
+          wrap.style.opacity = '0';
+          setTimeout(() => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-ai-view';
+            btn.dataset.summary = data.summary;
+            btn.onclick = function(){ showSummaryModal(this.dataset.summary); };
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View AI Summary';
+            wrap.innerHTML = '';
+            wrap.appendChild(btn);
+            wrap.style.opacity = '1';
+            showAiToast('AI Summary ready! ✓');
+          }, 300);
+        }
+      }
+    } catch(e){ console.error('Polling error', e); }
+  }, 4000);
+  setTimeout(() => clearInterval(pollInterval), 180000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-poll-id]').forEach(btn => {
+    startPolling(btn.getAttribute('data-poll-id'));
+  });
+});
 </script>
 {% endblock %}

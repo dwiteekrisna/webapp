@@ -13,29 +13,33 @@ except ImportError:
 
 class LacebitAIEngine:
     # --- TOGGLE CONSOLE LOGGING ---
-    DEBUG_MODE = False 
+    DEBUG_MODE = True  # Set False in production
 
     def __init__(self):
         # 1. Gemini Config
-        self.api_keys = [k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
+        self.api_keys =[k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
         self.model_name = "gemini-flash-lite-latest"
         self.current_key_idx = 0
         self.clients = {} 
         self.blocked_keys = {} # {key: expiry_timestamp}
         self.lock = asyncio.Lock()
         
-        # 2. Cloudflare Config
+        # 2. Cloudflare Config (Updated to Default user preference)
         self.cf_account_id = os.getenv("CF_ACCOUNT_ID")
         self.cf_token = os.getenv("CF_API_TOKEN")
-        self.cf_model = os.getenv("CF_MODEL", "@cf/meta/llama-3.2-11b-vision-instruct")
+        self.cf_model = os.getenv("CF_MODEL", "@cf/moonshotai/kimi-k2.5")
 
         # 3. Database
         self.db_name = os.getenv("DB_NAME")
 
-        # FIX: bot_info_cache was declared but never used — now actively used to skip
-        #      repeated DB hits for data that almost never changes.
-        self.bot_info_cache = None          # Cached bot identity row
-        self.bot_cache_expiry = 0           # Unix timestamp; refreshed every 10 min
+        # OPTIMIZATION: Heavy Memory Caching for Cold-Start Database Lookups.
+        # This prevents the App from crashing/hanging when doing parallel DB queries on new loads.
+        self.db_cache = {
+            'bot_info': {'data': None, 'expiry': 0},
+            'principal': {'data': None, 'expiry': 0},
+            'hod': {'data': None, 'expiry': 0},
+            'fuzzy': {} # {search_term: {'data': string, 'expiry': timestamp}}
+        }
 
         if self.DEBUG_MODE:
             self._log(f"LacebitAIEngine Initialized. Keys: {len(self.api_keys)}")
@@ -45,9 +49,8 @@ class LacebitAIEngine:
     # ======================================================
 
     def _log(self, message):
-        """Unified logging that strictly respects DEBUG_MODE."""
         if self.DEBUG_MODE:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}", flush=True)
 
     def _get_gemini_client(self, api_key):
         if api_key not in self.clients:
@@ -55,10 +58,8 @@ class LacebitAIEngine:
         return self.clients[api_key]
 
     async def _get_next_available_key(self):
-        """O(1) Round Robin key selector with Blacklist check."""
         now = time.time()
         async with self.lock:
-            # Cleanup expired blocks
             self.blocked_keys = {k: exp for k, exp in self.blocked_keys.items() if exp > now}
             
             for _ in range(len(self.api_keys)):
@@ -73,20 +74,13 @@ class LacebitAIEngine:
             return None, None, None
 
     # ======================================================
-    # DATABASE SEARCH LOGIC (PARALLEL)
+    # DATABASE SEARCH LOGIC (WITH CACHE TO FIX COLD STARTS)
     # ======================================================
 
     def _db_fetch_bot_identity(self):
-        """
-        OPTIMIZATION: Returns cached bot identity if still fresh (TTL = 10 min).
-        Eliminates a DB round-trip on every message for data that is effectively static.
-        Cache is instance-level so it is shared across all concurrent requests.
-        Falls back to stale cache on DB error rather than returning None.
-        """
         now = time.time()
-        if self.bot_info_cache and now < self.bot_cache_expiry:
-            self._log("DB Identity: cache HIT")
-            return self.bot_info_cache
+        if now < self.db_cache['bot_info']['expiry']:
+            return self.db_cache['bot_info']['data']
 
         try:
             conn = get_db(self.db_name)
@@ -94,61 +88,80 @@ class LacebitAIEngine:
             cursor.execute("SELECT bot_name, developer, habits FROM bot_info WHERE id = 1")
             res = cursor.fetchone()
             conn.close()
-            # Populate cache only on a valid result
-            if res:
-                self.bot_info_cache = res
-                self.bot_cache_expiry = now + 600   # 10-minute TTL
-            self._log("DB Identity: cache MISS — refreshed")
+            # Cache for 1 Hour to save Connection time overhead
+            self.db_cache['bot_info'] = {'data': res, 'expiry': now + 3600}
             return res
         except Exception as e:
             self._log(f"DB Identity Error: {e}")
-            return self.bot_info_cache   # Serve stale cache on error rather than None
+            return self.db_cache['bot_info']['data']
 
     def _db_fetch_principal(self, msg_l):
         if "principal" not in msg_l: return None
+        now = time.time()
+        if now < self.db_cache['principal']['expiry']:
+            return self.db_cache['principal']['data']
+            
         try:
             conn = get_db(self.db_name)
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT name, phone FROM principal LIMIT 1")
             res = cursor.fetchone()
             conn.close()
-            return f"Principal: {res['name']} ({res['phone']})" if res else None
+            data = f"Principal: {res['name']} ({res['phone']})" if res else None
+            self.db_cache['principal'] = {'data': data, 'expiry': now + 3600}
+            return data
         except: return None
 
     def _db_fetch_hod(self, msg_l):
         if "hod" not in msg_l: return None
+        now = time.time()
+        if now < self.db_cache['hod']['expiry']:
+            return self.db_cache['hod']['data']
+            
         try:
             conn = get_db(self.db_name)
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT name, branch, phone FROM faculty WHERE designation LIKE %s", ("%HOD%",))
             rows = cursor.fetchall()
             conn.close()
-            return "\n".join([f"HOD: {r['name']} ({r['branch']}) {r['phone']}" for r in rows])
+            data = "\n".join([f"HOD: {r['name']} ({r['branch']}) {r['phone']}" for r in rows])
+            self.db_cache['hod'] = {'data': data, 'expiry': now + 3600}
+            return data
         except: return None
 
     def _db_fetch_fuzzy_staff(self, msg_l):
         dept_map = {
-            'CSE': ['cse', 'computer', 'cse', 'comp'], 'WORKSHOP': ['workshop', 'w/s'],
-            'TEXTILE': ['textile', 'tex'], 'ELECTRICAL': ['electrical', 'ece', 'elect'],
+            'CSE': ['cse', 'computer', 'cse', 'comp'], 'WORKSHOP':['workshop', 'w/s'],
+            'TEXTILE': ['textile', 'tex'], 'ELECTRICAL':['electrical', 'ece', 'elect'],
             'MECHANICAL': ['mechanical', 'mech'], 'Math & Sc.': ['math', 'science', 'physics', 'chemistry']
         }
-        target_branches = [br for br, kws in dept_map.items() if any(kw in msg_l for kw in kws)]
+        target_branches =[br for br, kws in dept_map.items() if any(kw in msg_l for kw in kws)]
         clean = re.sub(r'who is|tell|contact|find|faculty|staff|list|department|hod|principal|sir|maam', '', msg_l).strip()
+        
         if not target_branches and len(clean) < 3: return None
+        
+        cache_key = f"{','.join(target_branches)}_{clean}"
+        now = time.time()
+        if cache_key in self.db_cache['fuzzy'] and now < self.db_cache['fuzzy'][cache_key]['expiry']:
+            return self.db_cache['fuzzy'][cache_key]['data']
+            
         try:
             conn = get_db(self.db_name)
             cursor = conn.cursor(dictionary=True)
-            search_terms, params = [], []
+            search_terms, params = [],[]
             for br in target_branches: search_terms.append("branch = %s"); params.append(br)
             if len(clean) > 2: search_terms.append("name LIKE %s"); params.append(f"%{clean}%")
             where = " OR ".join(search_terms)
-            results = []
+            results =[]
             cursor.execute(f"SELECT name, branch, phone FROM faculty WHERE {where} LIMIT 30", params)
             for r in cursor.fetchall(): results.append(f"Faculty: {r['name']} ({r['branch']}) {r['phone']}")
             cursor.execute(f"SELECT name, branch, phone FROM non_teaching_staff WHERE {where} LIMIT 20", params)
             for r in cursor.fetchall(): results.append(f"Staff: {r['name']} ({r['branch']}) {r['phone']}")
             conn.close()
-            return "\n".join(results)
+            
+            data = "\n".join(results)
+            self.db_cache['fuzzy'][cache_key] = {'data': data, 'expiry': now + 3600}
+            return data
         except: return None
 
     def _optimize_image_sync(self, image_bytes):
@@ -166,9 +179,9 @@ class LacebitAIEngine:
     # ======================================================
 
     async def generate_response_stream(self, user_message, history=None, image_bytes=None, mime_type=None, user_name="Student"):
-        # 1. PARALLEL DATA GATHERING
+        # 1. PARALLEL DATA GATHERING (Now Cache-Optimized!)
         msg_l = user_message.lower().strip()
-        db_tasks = [
+        db_tasks =[
             asyncio.to_thread(self._db_fetch_bot_identity),
             asyncio.to_thread(self._db_fetch_principal, msg_l),
             asyncio.to_thread(self._db_fetch_hod, msg_l),
@@ -181,8 +194,6 @@ class LacebitAIEngine:
         bot, principal, hod, fuzzy = results[0], results[1], results[2], results[3]
         opt_image = results[4] if image_bytes else None
 
-        # FIX: Bot now receives the user's FULL name for identity awareness,
-        #      but continues to address them by first name only for a friendly tone.
         u_full  = user_name if user_name else "Student"
         u_first = u_full.split()[0]
 
@@ -192,7 +203,7 @@ class LacebitAIEngine:
             f"You are {bot['bot_name'] if bot else 'AI'} by {bot['developer'] if bot else 'Dev'}. Style: {bot['habits'] if bot else 'concise'}. "
             f"User full name: {u_full}. Address them as: {u_first}. DATA: {db_data}. "
             f"RULES: 1. Address as {u_first}. 2. You != {u_first}. "
-            f"3. Format Names in **Bold**. 4. Use _Italic_, ***Bold+Italic***, ###, >, `Code`. 5. Moderated length."
+            f"3. Format Names in **Bold**. 4. Use _Italic_, ***Bold+Italic***, ###, >, `Code`."
         )
 
         # 3. HISTORY DEDUPLICATION
@@ -213,12 +224,12 @@ class LacebitAIEngine:
             self._log(f"[USE] Gemini Key {key_num}")
             try:
                 contents = formatted_history.copy()
-                new_parts = []
+                new_parts =[]
                 if opt_image: new_parts.append(types.Part.from_bytes(data=opt_image, mime_type="image/jpeg"))
                 new_parts.append(types.Part.from_text(text=user_message))
                 contents.append(types.Content(role="user", parts=new_parts))
 
-                safety = [types.SafetySetting(category=c, threshold="BLOCK_NONE") for c in ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]]
+                safety =[types.SafetySetting(category=c, threshold="BLOCK_NONE") for c in["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]]
 
                 yielded = False
                 async for chunk in await client.aio.models.generate_content_stream(
@@ -247,48 +258,93 @@ class LacebitAIEngine:
 
         # ─── STEP 2: CLOUDFLARE FALLBACK ───
         if should_fallback and self.cf_token:
-            self._log(f"[FALLBACK] Switching to Cloudflare ({self.cf_model})...")
+            self._log(f"[FALLBACK] Switching to Cloudflare model: {self.cf_model}")
+            t_fallback_start = time.time()
+
             url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run/{self.cf_model}"
             headers = {"Authorization": f"Bearer {self.cf_token}", "X-Skip-Model-Agreement": "true"}
-            
-            cf_msgs = [{"role": "system", "content": sys_instr}]
-            for e in history[-4:] if history else []:
-                r, t = ("assistant" if e.get('role') == 'assistant' else 'user'), e.get('content','').strip()
+
+            cf_msgs =[{"role": "system", "content": sys_instr}]
+            for e in history[-4:] if history else[]:
+                r, t = ("assistant" if e.get('role') == 'assistant' else 'user'), e.get('content', '').strip()
                 if r == 'user' and t == user_message.strip(): continue
-                cf_msgs.append({"role": r, "content": t})
-            cf_msgs.append({"role": "user", "content": user_message})
+                if t: cf_msgs.append({"role": r, "content": t})
 
+            if opt_image:
+                b64_img = base64.b64encode(opt_image).decode("utf-8")
+                user_content =[
+                    {"type": "text", "text": user_message},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}}
+                ]
+            else:
+                user_content = user_message
+
+            cf_msgs.append({"role": "user", "content": user_content})
             payload = {"messages": cf_msgs, "stream": True, "max_tokens": 2048}
-            if opt_image: payload["image"] = list(opt_image)
 
-            async with aiohttp.ClientSession() as session:
-                for _ in range(2):
+            # Extended connection wait duration for cold starts, keeping stream active
+            timeout = aiohttp.ClientTimeout(connect=25, sock_read=120)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                for attempt in range(2):
                     try:
-                        async with session.post(url, headers=headers, json=payload, timeout=60) as resp:
+                        self._log(f"[CF] Attempt {attempt + 1} — POST {url}")
+                        async with session.post(url, headers=headers, json=payload) as resp:
+                            self._log(f"[CF] HTTP status: {resp.status}")
+
                             if resp.status == 200:
-                                buffer = ""
-                                async for chunk_bytes in resp.content.iter_any():
-                                    buffer += chunk_bytes.decode('utf-8', errors='ignore')
-                                    while "\n" in buffer:
-                                        line, buffer = buffer.split("\n", 1)
-                                        if line.startswith("data:"):
-                                            # FIX: renamed from `data` → `cf_payload` to prevent
-                                            #      shadowing the outer `db_data` variable
-                                            cf_payload = line[5:].strip()
-                                            if cf_payload == "[DONE]": break
-                                            try:
-                                                token = json.loads(cf_payload).get("response")
-                                                if token: yield str(token)
-                                            except: continue
-                                self._log("[SUCCESS] Cloudflare stream completed.")
+                                token_count = 0
+                                # OPTIMIZATION: Safely parsing byte-chunks prevents `utf-8` split character 
+                                # drops which normally cause silent parsing failures and lag.
+                                buffer = b""
+                                
+                                async for raw_chunk in resp.content.iter_any():
+                                    buffer += raw_chunk
+                                    
+                                    while b'\n' in buffer:
+                                        line_bytes, buffer = buffer.split(b'\n', 1)
+                                        # Parse Line Fast and skip broken encodings mid-stream
+                                        line = line_bytes.decode('utf-8', errors='ignore').strip()
+                                        
+                                        if not line.startswith("data:"): continue
+                                        cf_payload = line[5:].strip()
+                                        
+                                        if cf_payload == "[DONE]":
+                                            self._log(f"[CF] Stream done. Tokens: {token_count}, Time: {time.time() - t_fallback_start:.2f}s")
+                                            return
+                                        try:
+                                            parsed = json.loads(cf_payload)
+                                            # Compatible with Standard Moonshot / Llama Responses
+                                            token = ""
+                                            if "choices" in parsed and len(parsed["choices"]) > 0:
+                                                delta = parsed["choices"][0].get("delta", {})
+                                                token = delta.get("content", "")
+                                            elif "response" in parsed:
+                                                token = parsed["response"]
+                                                
+                                            if token:
+                                                token_count += 1
+                                                yield str(token)
+                                        except json.JSONDecodeError:
+                                            continue
+
+                                self._log(f"[CF] Stream exhausted. Tokens: {token_count}, Time: {time.time() - t_fallback_start:.2f}s")
                                 return
+
                             elif resp.status == 403:
-                                self._log("[LICENSE] Sending agree handshake...")
+                                self._log("[CF] 403 — Sending license agree handshake...")
                                 await session.post(url, headers=headers, json={"prompt": "agree"})
-                                continue 
+                                continue
+                            else:
+                                body = await resp.text()
+                                self._log(f"[CF ERROR] HTTP {resp.status} — {body[:200]}")
                             break
+
+                    except asyncio.TimeoutError:
+                        self._log(f"[CF ERROR] Timeout after {time.time() - t_fallback_start:.2f}s")
+                        break
                     except Exception as e:
-                        self._log(f"[CF ERROR] {e}")
+                        self._log(f"[CF ERROR] {type(e).__name__}: {e}")
                         break
 
         # ─── STEP 3: FINAL ERROR HANDLING ───
@@ -301,5 +357,11 @@ class LacebitAIEngine:
 ai_engine = LacebitAIEngine()
 
 async def get_ai_response_stream(user_msg, history=None, img_bytes=None, mime_type=None, user_name="Student"):
-    async for chunk in ai_engine.generate_response_stream(user_msg, history, img_bytes, mime_type, user_name):
-        yield chunk
+    gen = ai_engine.generate_response_stream(user_msg, history, img_bytes, mime_type, user_name)
+    try:
+        async for chunk in gen:
+            yield chunk
+    except GeneratorExit:
+        pass
+    finally:
+        await gen.aclose()

@@ -73,11 +73,8 @@ def chat():
             img_type = img.content_type if img else None
             
             # ─── THE ULTIMATE NAME FIX ───
-            # First, try the key that we know works in your HTML template
             u_name = user.get('display_name') or user.get('name')
             
-            # Safety Backup: If the session dictionary is missing the name,
-            # query the 'users' table directly using the user_id we definitely have.
             if not u_name or str(u_name).strip() in ["", "Student"]:
                 try:
                     conn = get_db(DBs_NAME)
@@ -92,10 +89,18 @@ def chat():
             # ──────────────────────────────
 
             def generate():
+                # ==========================================================
+                # 🔥 OPTIMIZATION: ZERO-LATENCY CONNECTION HOLD 🔥
+                # Yielding a zero-width space instantly before the AI Engine 
+                # starts. This forces Gunicorn/Nginx/Cloudflare to send HTTP 
+                # 200 OK headers immediately, completely eliminating "Read 
+                # Timeout" connection drops during heavy cold starts.
+                # ==========================================================
+                yield b'\xe2\x80\x8b'
+                
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
-                # Pass the corrected u_name to the engine
                 gen = ai_mod.get_ai_response_stream(msg, hist, img_bytes, img_type, u_name)
                 
                 try:
@@ -434,6 +439,32 @@ def delete_notice(id):
         return redirect(url_for('login'))
     home_mod.handle_delete_notice(DBs_NAME, id)
     return redirect(url_for('home'))
+
+@app.route('/ai-summary/<int:id>', methods=['POST'])
+def ai_summary(id):
+    user = auth.get_current_user()
+    if not user or not user['is_admin'] or not HOME_READY:
+        return jsonify({"status": "error", "msg": "Unauthorized"}), 401
+    
+    try:
+        # This safely calls the logic in home.py
+        result = home_mod.handle_manual_summary(DBs_NAME, id)
+        return jsonify(result)
+    except Exception as e:
+        print(f"[AI ERROR]: {e}")
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+@app.route('/check-summary/<int:id>')
+def check_summary(id):
+    """Endpoint for the frontend to check if AI finished in the background."""
+    conn = get_db(DBs_NAME)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT summary FROM notice_summaries WHERE notice_id = %s", (id,))
+    res = cursor.fetchone()
+    conn.close()
+    if res:
+        return jsonify({"has_summary": True, "summary": res['summary']})
+    return jsonify({"has_summary": False})
 
 # --- END OF NOTICE BOARD ROUTES ---
 

@@ -157,9 +157,11 @@ html, body { height:100%; font-family:'DM Sans',sans-serif; background:var(--pap
   position:fixed; inset:0; z-index:600;
   background:rgba(10,10,15,.55); backdrop-filter:blur(6px);
   display:flex; align-items:center; justify-content:center;
-  opacity:0; pointer-events:none; transition:opacity .25s; padding:20px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .25s, visibility 0s linear .25s;
+  padding:20px;
 }
-.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal-overlay.open { opacity:1; visibility:visible; pointer-events:all; transition:opacity .25s, visibility 0s linear 0s; }
 .modal {
   background:var(--paper); border-radius:24px;
   width:min(520px,100%); padding:clamp(24px,5vw,40px);
@@ -218,9 +220,10 @@ html, body { height:100%; font-family:'DM Sans',sans-serif; background:var(--pap
   position:fixed; inset:0; z-index:900;
   background:rgba(10,10,15,.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
   display:flex; align-items:center; justify-content:center;
-  padding:20px; opacity:0; pointer-events:none; transition:opacity .25s;
+  padding:20px; opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .25s, visibility 0s linear .25s;
 }
-.pw-modal-overlay.open { opacity:1; pointer-events:all; }
+.pw-modal-overlay.open { opacity:1; visibility:visible; pointer-events:all; transition:opacity .25s, visibility 0s linear 0s; }
 .pw-modal {
   background:var(--card); border:1px solid var(--border);
   border-radius:20px; padding:28px 26px; width:min(380px,100%);
